@@ -1,0 +1,26 @@
+{
+  "name": "edumentor",
+  "version": "1.0.0",
+  "description": "EduMentor - Plataforma de Mentoría y Tutoría Educativa Inteligente con IA (Gemini 2.0 Flash)",
+  "main": "backend/server.js",
+  "scripts": {
+    "dev": "node --watch backend/server.js",
+    "start": "node backend/server.js"
+  },
+  "keywords": [
+    "gemini",
+    "education",
+    "socratic-tutor",
+    "ai",
+    "edumentor"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "firebase-admin": "^13.4.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}
