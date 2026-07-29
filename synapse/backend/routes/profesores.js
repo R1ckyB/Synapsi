@@ -1,37 +1,56 @@
 // ============================================
-// Rutas API: Dashboard del Profesor / Vacíos de Conocimiento
-// EduMentor - Backend
+// Rutas API: Dashboard del Profesor / Vacíos de Conocimiento (v2.0)
+// Synapse - Backend
 // ============================================
 
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/firebase');
+const { obtenerVaciosGrupo, obtenerVaciosEstudiante } = require('../agents/vaciosService');
 
 /**
  * GET /api/profesores/vacios
- * Retorna las métricas de vacíos de conocimiento identificados por Gemini para un grupo/profesor.
+ * Retorna las métricas de vacíos de conocimiento para el dashboard del profesor.
+ * Query params opcionales: grupoId, totalEstudiantes
  */
 router.get('/vacios', async (req, res) => {
   try {
-    const db = getDb();
+    const grupoId = req.query.grupoId || 'general';
+    const totalEstudiantes = parseInt(req.query.totalEstudiantes) || 30;
 
-    if (!db) {
-      // Mock data realista para desarrollo y pruebas del dashboard
-      return res.json({
-        exito: true,
-        vacios: [
-          { tema: 'Leyes de Newton', porcentajeDificultad: 68, consultasSemana: 24, conceptoCritico: 'Tercera Ley (Acción y Reacción)' },
-          { tema: 'Factorización de Polinomios', porcentajeDificultad: 54, consultasSemana: 18, conceptoCritico: 'Trinomio Cuadrado Perfecto' },
-          { tema: 'Fotosíntesis y Respiración Celular', porcentajeDificultad: 42, consultasSemana: 12, conceptoCritico: 'Ciclo de Krebs' }
-        ]
-      });
-    }
+    const vacios = await obtenerVaciosGrupo(grupoId, totalEstudiantes);
 
-    const snapshot = await db.collection('vacios_conocimiento').get();
-    const vacios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    res.json({ exito: true, vacios });
+    res.json({
+      exito: true,
+      grupoId,
+      totalEstudiantes,
+      vaciosDetectados: vacios.length,
+      vacios,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
+    console.error('❌ Error obteniendo vacíos:', error);
+    res.status(500).json({ error: true, mensaje: error.message });
+  }
+});
+
+/**
+ * GET /api/profesores/vacios/estudiante/:uid
+ * Retorna los vacíos específicos de un estudiante individual.
+ */
+router.get('/vacios/estudiante/:uid', async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const vacios = await obtenerVaciosEstudiante(uid);
+
+    res.json({
+      exito: true,
+      estudianteId: uid,
+      vaciosDetectados: vacios.length,
+      vacios,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo vacíos del estudiante:', error);
     res.status(500).json({ error: true, mensaje: error.message });
   }
 });

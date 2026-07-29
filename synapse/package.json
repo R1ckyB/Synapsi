@@ -1,18 +1,21 @@
 {
-  "name": "edumentor",
-  "version": "1.0.0",
-  "description": "EduMentor - Plataforma de Mentoría y Tutoría Educativa Inteligente con IA (Gemini 2.0 Flash)",
+  "name": "synapse",
+  "version": "2.0.0",
+  "description": "Synapse - Plataforma de Mentoría y Tutoría Educativa Inteligente con IA (Gemini 2.0 Flash) para XPRIZE 2026",
   "main": "backend/server.js",
   "scripts": {
     "dev": "node --watch backend/server.js",
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "tunnel": "npx -y localtunnel --port 3000 --subdomain synapse-tutor"
   },
   "keywords": [
     "gemini",
     "education",
     "socratic-tutor",
     "ai",
-    "edumentor"
+    "synapse",
+    "whatsapp",
+    "xprize"
   ],
   "license": "MIT",
   "dependencies": {
