@@ -102,11 +102,21 @@ async function obtenerVaciosGrupo(grupoId = 'general', totalEstudiantes = 30) {
     ];
   }
 
-  const snapshot = await db.collection(COLLECTION_VACIOS)
-    .where('grupoId', '==', grupoId)
-    .orderBy('consultasSemana', 'desc')
-    .limit(20)
-    .get();
+  // Intentar query con orderBy (requiere índice compuesto en Firestore)
+  // Si el índice no existe, hacer fallback con ordenamiento en JS
+  let snapshot;
+  try {
+    snapshot = await db.collection(COLLECTION_VACIOS)
+      .where('grupoId', '==', grupoId)
+      .orderBy('consultasSemana', 'desc')
+      .limit(20)
+      .get();
+  } catch (indexError) {
+    console.warn('⚠️ Índice compuesto no disponible en Firestore. Usando fallback con ordenamiento local.');
+    snapshot = await db.collection(COLLECTION_VACIOS)
+      .where('grupoId', '==', grupoId)
+      .get();
+  }
 
   const vacios = snapshot.docs.map(doc => {
     const data = doc.data();
@@ -126,7 +136,9 @@ async function obtenerVaciosGrupo(grupoId = 'general', totalEstudiantes = 30) {
     };
   });
 
-  return vacios;
+  // Ordenar en JS como fallback seguro y limitar
+  vacios.sort((a, b) => b.consultasSemana - a.consultasSemana);
+  return vacios.slice(0, 20);
 }
 
 /**
@@ -145,10 +157,18 @@ async function obtenerVaciosEstudiante(estudianteId) {
     ];
   }
 
-  const snapshot = await db.collection(COLLECTION_VACIOS)
-    .where('estudiantesAfectados', 'array-contains', estudianteId)
-    .orderBy('consultasTotales', 'desc')
-    .get();
+  let snapshot;
+  try {
+    snapshot = await db.collection(COLLECTION_VACIOS)
+      .where('estudiantesAfectados', 'array-contains', estudianteId)
+      .orderBy('consultasTotales', 'desc')
+      .get();
+  } catch (indexError) {
+    console.warn('⚠️ Índice compuesto no disponible. Usando fallback local.');
+    snapshot = await db.collection(COLLECTION_VACIOS)
+      .where('estudiantesAfectados', 'array-contains', estudianteId)
+      .get();
+  }
 
   return snapshot.docs.map(doc => {
     const data = doc.data();

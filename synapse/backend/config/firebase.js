@@ -1,6 +1,6 @@
 // ============================================
 // Configuración de Firebase Admin SDK
-// EduMentor - Backend
+// Synapse - Backend
 // ============================================
 
 const admin = require('firebase-admin');
@@ -28,15 +28,18 @@ function initFirebase() {
     } else {
       console.warn('⚠️ No se encontró firebase-credentials.json. Ejecutando en modo desarrollo local.');
       admin.initializeApp({
-        projectId: 'edumentor-dev'
+        projectId: 'synapse-dev'
       });
     }
+
+    db = admin.firestore();
+    auth = admin.auth();
   } catch (error) {
     console.warn('⚠️ Error al inicializar Firebase Admin:', error.message);
+    console.warn('⚠️ Firestore y Auth no disponibles. El backend funcionará con mock data.');
+    db = null;
+    auth = null;
   }
-
-  db = admin.firestore();
-  auth = admin.auth();
 
   return { db, auth };
 }

@@ -1,6 +1,6 @@
 // ============================================
 // Rutas API: Autenticación y Registro
-// EduMentor - Backend
+// Synapse - Backend
 // ============================================
 
 const express = require('express');
@@ -59,7 +59,7 @@ router.get('/perfil/:uid', async (req, res) => {
       return res.json({
         uid,
         nombre: 'Estudiante Demo',
-        email: 'demo@edumentor.edu',
+        email: 'demo@synapse.edu',
         rol: 'estudiante',
         nivelEducativo: 'preparatoria'
       });

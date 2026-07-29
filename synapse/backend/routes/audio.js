@@ -1,6 +1,6 @@
 // ============================================
 // Rutas API: Procesamiento de Audio / Notas de Voz
-// EduMentor - Backend
+// Synapse - Backend
 // ============================================
 
 const express = require('express');
@@ -23,8 +23,9 @@ router.post('/procesar', upload.single('audio'), async (req, res) => {
 
     const contextoTema = req.body.materia || 'General';
     const mimeType = req.file.mimetype || 'audio/mp3';
+    const nivelEducativo = req.body.nivelEducativo || 'secundaria';
 
-    const resultado = await procesarAudioDuda(req.file.buffer, mimeType, contextoTema);
+    const resultado = await procesarAudioDuda(req.file.buffer, mimeType, contextoTema, nivelEducativo);
 
     res.json({
       exito: true,

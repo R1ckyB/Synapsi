@@ -1,6 +1,6 @@
 // ============================================
 // Wrapper de Google Gemini API
-// EduMentor - Backend (Modelo: gemini-2.0-flash)
+// Synapse - Backend (Modelo: gemini-2.0-flash)
 // ============================================
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
