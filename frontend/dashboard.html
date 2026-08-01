@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synapse — Dashboard Estudiante</title>
+  <meta name="description" content="Tu panel de aprendizaje personalizado con Synapse EduMentor." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <!-- Mobile sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <div class="app-shell">
+    <!-- ══ SIDEBAR ═══════════════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Menú principal">
+      <a href="dashboard.html" class="sidebar-brand" aria-label="Synapse inicio">
+        <div class="brand-icon">🧠</div>
+        <span class="brand-name">Synapse</span>
+        <span class="brand-ver">v2.0</span>
+      </a>
+
+      <div class="sidebar-section">
+        <p class="sidebar-section-title">Aprender</p>
+        <button class="nav-item active" id="nav-chat" onclick="showView('chat')" aria-current="page">
+          <span class="nav-icon">💬</span> Chat con Tutor
+        </button>
+        <button class="nav-item" id="nav-quizzes" onclick="showView('quizzes')">
+          <span class="nav-icon">🧩</span> Mis Quizzes
+          <span class="nav-badge" id="quiz-badge">3</span>
+        </button>
+        <button class="nav-item" id="nav-audio" onclick="showView('audio')">
+          <span class="nav-icon">🎙️</span> Notas de Voz
+        </button>
+        <button class="nav-item" id="nav-imagen" onclick="showView('imagen')">
+          <span class="nav-icon">📸</span> Analizar Imagen
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <p class="sidebar-section-title">Mi Progreso</p>
+        <button class="nav-item" id="nav-progreso" onclick="showView('progreso')">
+          <span class="nav-icon">📈</span> Estadísticas
+        </button>
+        <button class="nav-item" id="nav-materias" onclick="showView('materias')">
+          <span class="nav-icon">📚</span> Mis Materias
+        </button>
+      </div>
+
+      <div class="sidebar-user">
+        <div class="sidebar-user-card" onclick="toggleUserMenu()">
+          <div class="avatar" id="sidebar-avatar">--</div>
+          <div class="user-info">
+            <div class="user-name" id="sidebar-user-name">Cargando...</div>
+            <div class="user-role" id="sidebar-user-nivel">Estudiante</div>
+          </div>
+          <span class="user-menu-btn">⋯</span>
+        </div>
+        <!-- User mini-menu -->
+        <div class="hidden" id="user-mini-menu" style="background:var(--clr-bg-2);border:1px solid var(--clr-border);border-radius:var(--r-lg);padding:var(--sp-sm);margin-top:6px;">
+          <button class="nav-item" style="border-radius:var(--r-md);" onclick="handleLogout()">
+            <span class="nav-icon">🚪</span> Cerrar sesión
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ══ MAIN CONTENT ══════════════════════════════════════ -->
+    <div class="main-content">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="btn btn-ghost btn-icon menu-toggle" onclick="openSidebar()" aria-label="Abrir menú" id="menu-toggle-btn">☰</button>
+          <div>
+            <div class="page-title" id="topbar-title">Chat con Tutor</div>
+            <div class="page-breadcrumb" id="topbar-breadcrumb">Método socrático · Gemini 2.0 Flash</div>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <select class="materia-selector" id="materia-selector" onchange="cambiarMateria(this.value)">
+            <option value="Matemáticas">📐 Matemáticas</option>
+            <option value="Física">⚛️ Física</option>
+            <option value="Química">🧪 Química</option>
+            <option value="Historia">📜 Historia</option>
+            <option value="Biología">🧬 Biología</option>
+            <option value="Español">✍️ Español</option>
+            <option value="Inglés">🌎 Inglés</option>
+            <option value="General">🔍 General</option>
+          </select>
+          <button class="notif-btn" id="notif-btn" aria-label="Notificaciones" onclick="showToast('No hay notificaciones nuevas','info')">
+            🔔
+            <span class="notif-dot"></span>
+          </button>
+          <div class="avatar" id="topbar-avatar" style="cursor:pointer" onclick="toggleUserMenu()">--</div>
+        </div>
+      </header>
+
+      <!-- ═════════════ VIEWS ════════════════════════════════ -->
+      <div class="views-container">
+
+        <!-- ── VIEW: CHAT ──────────────────────────────────── -->
+        <section class="view active" id="view-chat" aria-label="Chat con el tutor">
+          <div class="stats-grid" id="stats-row">
+            <div class="stat-card anim-up">
+              <span class="stat-icon">🔥</span>
+              <div class="stat-label">Racha de Estudio</div>
+              <div class="stat-value text-gradient" id="stat-racha">7</div>
+              <div class="stat-change">días consecutivos</div>
+            </div>
+            <div class="stat-card anim-up-d1">
+              <span class="stat-icon">💬</span>
+              <div class="stat-label">Preguntas Hoy</div>
+              <div class="stat-value text-gradient" id="stat-preguntas">0</div>
+              <div class="stat-change" id="stat-preguntas-change">Empieza a preguntar</div>
+            </div>
+            <div class="stat-card anim-up-d2">
+              <span class="stat-icon">🧩</span>
+              <div class="stat-label">Quizzes Correctos</div>
+              <div class="stat-value text-gradient" id="stat-quizzes">0</div>
+              <div class="stat-change">de 0 intentados</div>
+            </div>
+            <div class="stat-card anim-up-d3">
+              <span class="stat-icon">⚡</span>
+              <div class="stat-label">Nivel Actual</div>
+              <div class="stat-value" style="font-size:1.4rem" id="stat-nivel">Secundaria</div>
+              <div class="stat-change text-gradient" id="stat-materia-actual">Matemáticas</div>
+            </div>
+          </div>
+
+          <div class="content-grid">
+            <!-- CHAT TUTOR -->
+            <div>
+              <div class="chat-container" id="chat-container">
+                <!-- Header -->
+                <div class="chat-header">
+                  <div class="chat-header-info">
+                    <div class="chat-tutor-avatar">
+                      🧠
+                      <div class="online-dot"></div>
+                    </div>
+                    <div>
+                      <div class="chat-tutor-name">Synapse</div>
+                      <div class="chat-tutor-status" id="chat-status">Listo para ayudarte ✨</div>
+                    </div>
+                  </div>
+                  <div class="chat-actions">
+                    <button class="btn btn-ghost btn-icon btn-sm" onclick="clearChat()" title="Nueva conversación" aria-label="Nueva conversación">🗑️</button>
+                    <button class="btn btn-ghost btn-icon btn-sm" onclick="exportChat()" title="Exportar chat" aria-label="Exportar chat">📤</button>
+                  </div>
+                </div>
+
+                <!-- Messages -->
+                <div class="chat-messages" id="chat-messages" role="log" aria-live="polite">
+                  <!-- Mensaje de bienvenida inicial -->
+                  <div class="msg msg-tutor" id="welcome-msg">
+                    <div class="msg-avatar">🧠</div>
+                    <div>
+                      <div class="msg-bubble">
+                        ¡Hola! Soy <strong>Synapse</strong>, tu tutor personal con IA 🎓<br><br>
+                        Estoy aquí para ayudarte a aprender <em>de verdad</em>, usando el método socrático: te guiaré con preguntas para que llegues a las respuestas tú mismo.<br><br>
+                        ¿Sobre qué tema tienes dudas hoy? Puedes escribir tu pregunta, subir una foto de tu cuaderno o grabar una nota de voz 🚀
+                      </div>
+                      <div class="msg-time">Ahora</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Input area -->
+                <div class="chat-input-area">
+                  <div class="chat-input-row">
+                    <div class="chat-input-wrap">
+                      <textarea
+                        class="chat-input" id="chat-input"
+                        placeholder="Escribe tu duda o pregunta aquí... (Enter para enviar)"
+                        rows="1" maxlength="2000"
+                        onkeydown="handleChatKey(event)"
+                        oninput="autoResize(this)"
+                        aria-label="Escribe tu mensaje"
+                      ></textarea>
+                      <button class="chat-input-attach" onclick="document.getElementById('file-input-img').click()" aria-label="Adjuntar imagen" title="Analizar imagen">📎</button>
+                    </div>
+                    <button class="chat-send-btn" id="chat-send-btn" onclick="sendMessage()" aria-label="Enviar mensaje" title="Enviar (Enter)">
+                      ➤
+                    </button>
+                  </div>
+                  <div class="chat-tools">
+                    <button class="chat-tool-btn" id="btn-record-chat" onclick="toggleRecordChat()" aria-label="Grabar nota de voz">
+                      🎙️ <span id="record-chat-label">Nota de voz</span>
+                    </button>
+                    <button class="chat-tool-btn" onclick="document.getElementById('file-input-img').click()" aria-label="Subir imagen">
+                      📸 Subir imagen
+                    </button>
+                    <button class="chat-tool-btn" onclick="requestQuiz()" aria-label="Generar quiz">
+                      🧩 Generar quiz
+                    </button>
+                  </div>
+                  <input type="file" id="file-input-img" accept="image/*" class="hidden" onchange="handleImageUpload(event)" aria-label="Seleccionar imagen" />
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT PANEL -->
+            <div class="right-panel">
+              <!-- Materias -->
+              <div class="panel-card">
+                <div class="panel-card-title">📚 Mis Materias</div>
+                <div class="materia-list" id="materia-list">
+                  <div class="materia-item active" onclick="selectMateria(this, 'Matemáticas')">
+                    <span class="materia-emoji">📐</span>
+                    <div class="materia-info">
+                      <div class="materia-name">Matemáticas</div>
+                      <div class="progress-track" style="margin-top:4px"><div class="progress-fill" style="width:65%"></div></div>
+                    </div>
+                    <span class="materia-pct">65%</span>
+                  </div>
+                  <div class="materia-item" onclick="selectMateria(this, 'Física')">
+                    <span class="materia-emoji">⚛️</span>
+                    <div class="materia-info">
+                      <div class="materia-name">Física</div>
+                      <div class="progress-track" style="margin-top:4px"><div class="progress-fill" style="width:40%"></div></div>
+                    </div>
+                    <span class="materia-pct">40%</span>
+                  </div>
+                  <div class="materia-item" onclick="selectMateria(this, 'Historia')">
+                    <span class="materia-emoji">📜</span>
+                    <div class="materia-info">
+                      <div class="materia-name">Historia</div>
+                      <div class="progress-track" style="margin-top:4px"><div class="progress-fill" style="width:80%"></div></div>
+                    </div>
+                    <span class="materia-pct">80%</span>
+                  </div>
+                  <div class="materia-item" onclick="selectMateria(this, 'Química')">
+                    <span class="materia-emoji">🧪</span>
+                    <div class="materia-info">
+                      <div class="materia-name">Química</div>
+                      <div class="progress-track" style="margin-top:4px"><div class="progress-fill" style="width:25%"></div></div>
+                    </div>
+                    <span class="materia-pct">25%</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Racha -->
+              <div class="panel-card">
+                <div class="panel-card-title">🔥 Racha de Estudio</div>
+                <div class="streak-display">
+                  <div class="streak-fire">🔥</div>
+                  <div class="streak-count text-gradient" id="streak-count">7</div>
+                  <div class="streak-label">días consecutivos</div>
+                </div>
+                <div class="streak-days">
+                  <div class="streak-day done" title="Lunes">L</div>
+                  <div class="streak-day done" title="Martes">M</div>
+                  <div class="streak-day done" title="Miércoles">X</div>
+                  <div class="streak-day done" title="Jueves">J</div>
+                  <div class="streak-day done" title="Viernes">V</div>
+                  <div class="streak-day done" title="Sábado">S</div>
+                  <div class="streak-day done" title="Domingo">D</div>
+                </div>
+              </div>
+
+              <!-- Pregunta del día -->
+              <div class="panel-card" style="background:linear-gradient(135deg,rgba(255,209,102,0.08),rgba(108,99,255,0.08));border-color:rgba(255,209,102,0.2)">
+                <div class="panel-card-title">⭐ Pregunta del Día</div>
+                <p id="pregunta-dia" style="font-size:0.88rem;color:var(--clr-text-2);line-height:1.6;margin-bottom:var(--sp-md)">Cargando pregunta del día...</p>
+                <button class="btn btn-ghost btn-sm" style="width:100%" onclick="sendQuestionOfDay()">Responder ahora →</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW: QUIZZES ───────────────────────────────── -->
+        <section class="view" id="view-quizzes" aria-label="Mis Quizzes">
+          <div class="quiz-generator-card">
+            <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:var(--sp-lg)">🧩 Generar Quiz con IA</h2>
+            <div class="quiz-settings">
+              <div class="input-group">
+                <label class="input-label" for="quiz-tema">Tema a evaluar</label>
+                <input id="quiz-tema" class="input" type="text" placeholder="Ej: Fracciones, Segunda Guerra Mundial..." />
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="quiz-cant">Número de preguntas</label>
+                <select id="quiz-cant" class="select">
+                  <option value="3">3 preguntas (rápido)</option>
+                  <option value="5" selected>5 preguntas</option>
+                  <option value="10">10 preguntas (completo)</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="quiz-dif">Dificultad</label>
+                <select id="quiz-dif" class="select">
+                  <option value="basico">🟢 Básico</option>
+                  <option value="intermedio" selected>🟡 Intermedio</option>
+                  <option value="avanzado">🔴 Avanzado</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="quiz-materia-sel">Materia</label>
+                <select id="quiz-materia-sel" class="select">
+                  <option>Matemáticas</option><option>Física</option><option>Química</option>
+                  <option>Historia</option><option>Biología</option><option>Español</option><option>Inglés</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-lg" onclick="generateQuiz()" id="btn-gen-quiz" style="width:100%">
+              <span id="btn-gen-quiz-text">✨ Generar Quiz con Gemini</span>
+              <span id="btn-gen-quiz-spin" class="spinner spinner-sm hidden"></span>
+            </button>
+          </div>
+
+          <!-- Active quiz -->
+          <div id="quiz-active" class="hidden">
+            <div class="quiz-card" id="quiz-card">
+              <div class="quiz-progress-header">
+                <span class="badge badge-primary" id="quiz-prog-badge">Pregunta 1 / 5</span>
+                <span class="badge badge-accent" id="quiz-score-badge">0 correctas</span>
+              </div>
+              <div class="progress-track" style="margin-bottom:var(--sp-xl)">
+                <div class="progress-fill" id="quiz-progress-bar" style="width:0%"></div>
+              </div>
+              <h3 class="quiz-question-text" id="quiz-question-text">Cargando pregunta...</h3>
+              <div class="quiz-options" id="quiz-options-container"></div>
+              <div class="quiz-feedback hidden" id="quiz-feedback"></div>
+              <button class="btn btn-primary" id="btn-quiz-next" onclick="nextQuestion()" style="display:none">
+                Siguiente →
+              </button>
+            </div>
+          </div>
+
+          <!-- Quiz result -->
+          <div id="quiz-result" class="hidden">
+            <div class="quiz-card quiz-result-card">
+              <div class="result-stars" id="result-stars"></div>
+              <div class="result-score text-gradient" id="result-score"></div>
+              <div class="result-msg" id="result-msg"></div>
+              <div style="display:flex;gap:var(--sp-md);justify-content:center;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="generateQuiz()">🔄 Nuevo Quiz</button>
+                <button class="btn btn-ghost" onclick="showView('chat')">💬 Consultar al Tutor</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW: AUDIO ─────────────────────────────────── -->
+        <section class="view" id="view-audio" aria-label="Notas de Voz">
+          <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:var(--sp-xl)">🎙️ Procesar Notas de Voz</h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-xl);margin-bottom:var(--sp-xl)">
+            <div>
+              <!-- Recorder -->
+              <div class="audio-recorder">
+                <div style="font-size:1rem;font-weight:600;color:var(--clr-text-2)">Graba tu duda o un fragmento de clase</div>
+                <div class="record-btn" id="record-btn" onclick="toggleRecord()" role="button" aria-label="Grabar" tabindex="0">🎙️</div>
+                <div class="record-time mono" id="record-time">00:00</div>
+                <div id="record-status" style="font-size:0.82rem;color:var(--clr-text-3)">Haz clic para grabar</div>
+                <button class="btn btn-primary" id="btn-process-audio" style="display:none" onclick="processAudio()">
+                  ✨ Analizar con Gemini
+                </button>
+              </div>
+            </div>
+            <div>
+              <!-- Or upload -->
+              <div class="upload-zone" id="audio-upload-zone"
+                   onclick="document.getElementById('audio-file-input').click()"
+                   ondragover="handleDragOver(event,'audio-upload-zone')"
+                   ondragleave="handleDragLeave('audio-upload-zone')"
+                   ondrop="handleAudioDrop(event)"
+                   role="button" tabindex="0" aria-label="Subir archivo de audio">
+                <div class="upload-icon">🎵</div>
+                <div class="upload-title">O sube un archivo de audio</div>
+                <div class="upload-sub">MP3, WAV, M4A, OGG · Máx 10MB</div>
+              </div>
+              <input type="file" id="audio-file-input" accept="audio/*" class="hidden" onchange="handleAudioFile(event)" aria-label="Seleccionar audio" />
+            </div>
+          </div>
+
+          <!-- Analysis result -->
+          <div id="audio-result" class="hidden">
+            <div class="analysis-result">
+              <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:var(--sp-lg)">📋 Análisis de tu audio</h3>
+              <div class="result-section">
+                <h4>🎯 Resumen</h4>
+                <p id="audio-resumen">—</p>
+              </div>
+              <div class="result-section">
+                <h4>⭐ Puntos Clave</h4>
+                <ul id="audio-puntos"></ul>
+              </div>
+              <div class="result-section">
+                <h4>❓ Preguntas de Repaso Generadas</h4>
+                <div id="audio-preguntas"></div>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="document.getElementById('audio-result').classList.add('hidden')">
+                Cerrar análisis
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW: IMAGEN ────────────────────────────────── -->
+        <section class="view" id="view-imagen" aria-label="Analizar Imagen">
+          <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:var(--sp-xl)">📸 Analizar Imagen de Cuaderno</h2>
+
+          <div class="upload-zone" id="img-upload-zone"
+               onclick="document.getElementById('img-file-input').click()"
+               ondragover="handleDragOver(event,'img-upload-zone')"
+               ondragleave="handleDragLeave('img-upload-zone')"
+               ondrop="handleImgDrop(event)"
+               style="margin-bottom:var(--sp-xl)"
+               role="button" tabindex="0" aria-label="Subir imagen de cuaderno">
+            <div class="upload-icon">📸</div>
+            <div class="upload-title">Sube una foto de tu cuaderno o ejercicio</div>
+            <div class="upload-sub">JPG, PNG, WEBP · Máx 10MB · Synapse detectará errores y te guiará</div>
+          </div>
+          <input type="file" id="img-file-input" accept="image/*" class="hidden" onchange="handleImgFile(event)" aria-label="Seleccionar imagen" />
+
+          <!-- Preview + question -->
+          <div id="img-preview-section" class="hidden" style="margin-bottom:var(--sp-xl)">
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:var(--sp-xl);align-items:start">
+              <div>
+                <img id="img-preview" src="" alt="Vista previa" style="max-width:250px;max-height:250px;border-radius:var(--r-lg);border:1px solid var(--clr-border);object-fit:contain" />
+                <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%" onclick="clearImg()">Cambiar imagen</button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--sp-md)">
+                <div class="input-group">
+                  <label class="input-label" for="img-pregunta">¿Qué quieres saber?</label>
+                  <textarea id="img-pregunta" class="input textarea" rows="3" placeholder="Ej: ¿Encontraste algún error en mi procedimiento? ¿Qué me faltó?"></textarea>
+                </div>
+                <div class="input-group">
+                  <label class="input-label" for="img-materia-sel">Materia</label>
+                  <select id="img-materia-sel" class="select">
+                    <option>Matemáticas</option><option>Física</option><option>Química</option>
+                    <option>Historia</option><option>Biología</option><option>General</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-lg" onclick="analyzeImage()" id="btn-analyze-img">
+                  <span id="btn-analyze-text">🔍 Analizar con Gemini</span>
+                  <span id="btn-analyze-spin" class="spinner spinner-sm hidden"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Image analysis result -->
+          <div id="img-result" class="hidden">
+            <div class="analysis-result">
+              <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:var(--sp-lg)">🔍 Análisis de Synapse</h3>
+              <div class="result-section">
+                <h4>📝 Observación</h4>
+                <p id="img-observacion">—</p>
+              </div>
+              <div class="result-section">
+                <h4>🎯 Guía Socrática</h4>
+                <p id="img-guia">—</p>
+              </div>
+              <div class="result-section">
+                <h4>💡 Pistas para resolver</h4>
+                <ul id="img-pistas"></ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW: PROGRESO ──────────────────────────────── -->
+        <section class="view" id="view-progreso" aria-label="Mis Estadísticas">
+          <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:var(--sp-xl)">📈 Mi Progreso</h2>
+          <div class="stats-grid" style="margin-bottom:var(--sp-xl)">
+            <div class="stat-card">
+              <span class="stat-icon">📅</span>
+              <div class="stat-label">Días estudiados</div>
+              <div class="stat-value text-gradient" id="prog-dias">7</div>
+              <div class="stat-change">este mes</div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-icon">💬</span>
+              <div class="stat-label">Total preguntas</div>
+              <div class="stat-value text-gradient" id="prog-total-q">0</div>
+              <div class="stat-change">todas las sesiones</div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-icon">🎯</span>
+              <div class="stat-label">Precisión quizzes</div>
+              <div class="stat-value text-gradient" id="prog-precision">—</div>
+              <div class="stat-change">promedio</div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-icon">🏆</span>
+              <div class="stat-label">Mejor racha</div>
+              <div class="stat-value text-gradient" id="prog-mejor-racha">7</div>
+              <div class="stat-change">días</div>
+            </div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-title">📊 Progreso por Materia</div>
+            <div id="prog-materias-list" style="display:flex;flex-direction:column;gap:var(--sp-md)">
+              <!-- Generado dinámicamente -->
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW: MATERIAS ──────────────────────────────── -->
+        <section class="view" id="view-materias" aria-label="Mis Materias">
+          <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:var(--sp-xl)">📚 Mis Materias</h2>
+          <div class="vacios-grid" id="materias-grid">
+            <!-- Generado dinámicamente -->
+          </div>
+        </section>
+
+      </div><!-- /views-container -->
+    </div><!-- /main-content -->
+  </div><!-- /app-shell -->
+
+  <!-- Toast container -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- Image modal para análisis rápido desde chat -->
+  <div class="modal-overlay" id="img-chat-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">📸 Analizar imagen</span>
+        <button class="modal-close" onclick="closeImgModal()" aria-label="Cerrar">×</button>
+      </div>
+      <img id="modal-img-preview" src="" alt="Vista previa" style="width:100%;border-radius:var(--r-lg);margin-bottom:var(--sp-md);max-height:300px;object-fit:contain" />
+      <div class="input-group" style="margin-bottom:var(--sp-md)">
+        <label class="input-label" for="modal-img-q">¿Qué quieres preguntar sobre esta imagen?</label>
+        <input id="modal-img-q" type="text" class="input" placeholder="¿Está correcto mi procedimiento?" />
+      </div>
+      <div style="display:flex;gap:var(--sp-sm)">
+        <button class="btn btn-primary" style="flex:1" onclick="sendImageFromChat()">✨ Analizar</button>
+        <button class="btn btn-ghost" onclick="closeImgModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/quiz.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
