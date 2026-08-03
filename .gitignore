@@ -8,3 +8,14 @@ uploads/
 .DS_Store
 .vscode/
 .idea/
+
+# Archivos comprimidos y pesados
+*.zip
+*.rar
+*.tar.gz
+proyecto.zip
+
+# Archivos temporales y de cache
+*.tmp
+.cache/
+
