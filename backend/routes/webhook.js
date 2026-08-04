@@ -1,7 +1,7 @@
 // ============================================
-// Webhook de WhatsApp (Twilio) — v2.0 Completo
+// Webhook de WhatsApp (Twilio) — v2.1 Completo
 // Synapse - Backend
-// Soporta: Texto, Audio, Imágenes, Historial, Quiz
+// Soporta: Texto, Audio, Imágenes, Historial Firestore, Perfil Estudiante
 // ============================================
 
 const express = require('express');
@@ -11,6 +11,7 @@ const { generarQuizAdaptativo } = require('../agents/quizGenerator');
 const { procesarAudioDuda } = require('../agents/audioProcessor');
 const { analizarFotoCuaderno } = require('../agents/imageAnalyzer');
 const { getDb } = require('../config/firebase');
+const { obtenerPerfil, procesarComandoPerfil, mensajeBienvenida, actualizarPerfil } = require('../services/perfilWhatsappService');
 
 // ─────────────────────────────────────────────
 // Historial persistente en Firestore + caché local en memoria
@@ -18,30 +19,23 @@ const { getDb } = require('../config/firebase');
 // entre reinicios y en entornos multi-instancia.
 // ─────────────────────────────────────────────
 const COLLECTION_HISTORIAL_WA = 'historial_whatsapp';
-const MAX_HISTORIAL = 20; // Máximo de mensajes por usuario
-const cachHistorial = new Map(); // Caché en memoria para el proceso actual
+const MAX_HISTORIAL = 20;
+const cachHistorial = new Map();
 
 /**
  * Obtiene el historial de conversación de un usuario.
  * Primero consulta el caché local; si no existe, lo carga desde Firestore.
- *
- * @param {string} remitente - Número de WhatsApp (usado como ID del documento)
- * @returns {Array} Historial de mensajes [{role, text}]
  */
 async function obtenerHistorial(remitente) {
-  // 1. Retornar desde caché si ya está en memoria
   if (cachHistorial.has(remitente)) {
     return cachHistorial.get(remitente);
   }
 
-  // 2. Intentar cargar desde Firestore
   const db = getDb();
   if (db) {
     try {
       const docId = remitente.replace(/[^a-zA-Z0-9]/g, '_');
-      const docRef = db.collection(COLLECTION_HISTORIAL_WA).doc(docId);
-      const doc = await docRef.get();
-
+      const doc = await db.collection(COLLECTION_HISTORIAL_WA).doc(docId).get();
       if (doc.exists) {
         const historial = doc.data().mensajes || [];
         cachHistorial.set(remitente, historial);
@@ -52,29 +46,21 @@ async function obtenerHistorial(remitente) {
     }
   }
 
-  // 3. Fallback: historial vacío
   cachHistorial.set(remitente, []);
   return cachHistorial.get(remitente);
 }
 
 /**
- * Agrega un mensaje al historial del usuario y lo persiste en Firestore.
- * Limita el historial a MAX_HISTORIAL mensajes para controlar el tamaño.
- *
- * @param {string} remitente - Número de WhatsApp
- * @param {string} role - Rol del mensaje ('user' | 'model')
- * @param {string} text - Contenido del mensaje
+ * Agrega un mensaje al historial y lo persiste en Firestore de forma asíncrona.
  */
 async function agregarAlHistorial(remitente, role, text) {
   const historial = await obtenerHistorial(remitente);
   historial.push({ role, text, timestamp: new Date().toISOString() });
 
-  // Limitar tamaño en memoria
   if (historial.length > MAX_HISTORIAL) {
     historial.splice(0, historial.length - MAX_HISTORIAL);
   }
 
-  // Persistir en Firestore de forma asíncrona (sin bloquear la respuesta)
   const db = getDb();
   if (db) {
     const docId = remitente.replace(/[^a-zA-Z0-9]/g, '_');
@@ -101,10 +87,9 @@ function escaparXML(texto) {
 }
 
 /**
- * Construye la respuesta TwiML para Twilio.
+ * Construye la respuesta TwiML para Twilio (limita a 1500 chars).
  */
 function respuestaTwiML(mensaje) {
-  // Truncar si excede el límite de WhatsApp (1600 chars)
   const mensajeLimitado = mensaje.length > 1500
     ? mensaje.substring(0, 1500) + '\n\n_...continúa preguntando para más detalles._'
     : mensaje;
@@ -136,41 +121,51 @@ router.post('/whatsapp', async (req, res) => {
 
     console.log(`📱 WhatsApp de [${nombrePerfil}] (${remitente}): "${mensajeTexto}" | Media: ${numMedia}`);
 
-    // ── Datos del estudiante por WhatsApp ──
+    // ── Cargar perfil persistente del estudiante desde Firestore ──
+    const perfil = await obtenerPerfil(remitente, nombrePerfil);
+
     const estudiante = {
       uid: remitente.replace('whatsapp:', ''),
-      nombre: nombrePerfil,
-      nivelEducativo: 'secundaria',
-      materiaActual: 'General',
+      nombre: perfil.nombre || nombrePerfil,
+      nivelEducativo: perfil.nivelEducativo || 'secundaria',
+      materiaActual: perfil.materiaActual || 'General',
       grupoId: 'whatsapp'
     };
 
     let respuestaFinal = '';
+
+    // ── Onboarding: mostrar bienvenida al primer mensaje si sin configurar ──
+    if (!perfil.bienvenidaEnviada && mensajeTexto && !mensajeTexto.toLowerCase().startsWith('nivel')) {
+      actualizarPerfil(remitente, { bienvenidaEnviada: true }).catch(() => {});
+      respuestaFinal = mensajeBienvenida(nombrePerfil) + '\n\n---\n\n';
+    }
 
     // ── CASO 1: Mensaje con IMAGEN adjunta ──
     if (numMedia > 0 && mediaType.startsWith('image/')) {
       console.log(`🖼️ Imagen recibida: ${mediaType} | URL: ${mediaUrl}`);
 
       try {
-        // Descargar la imagen desde Twilio (requiere autenticación)
         const imagenBuffer = await descargarMediaTwilio(mediaUrl);
 
         if (imagenBuffer) {
-          const analisis = await analizarFotoCuaderno(imagenBuffer, mediaType, 'General', 'secundaria');
+          const analisis = await analizarFotoCuaderno(
+            imagenBuffer, mediaType,
+            estudiante.materiaActual, estudiante.nivelEducativo
+          );
 
           if (analisis.errorDetectado) {
-            respuestaFinal = `📸 *Analicé tu ejercicio*\n\n📝 Ejercicio: ${analisis.ejercicioIdentificado || 'Detectado'}\n\n⚠️ ${analisis.descripcionError}\n\n❓ ${analisis.preguntaSocratica}\n\n💡 _Pista: ${analisis.pistaAdicional || 'Revisa paso a paso'}_\n\n${analisis.mensajeMotivador || ''}`;
+            respuestaFinal += `📸 *Analicé tu ejercicio*\n\n📝 Ejercicio: ${analisis.ejercicioIdentificado || 'Detectado'}\n\n⚠️ ${analisis.descripcionError}\n\n❓ ${analisis.preguntaSocratica}\n\n💡 _Pista: ${analisis.pistaAdicional || 'Revisa paso a paso'}_\n\n${analisis.mensajeMotivador || ''}`;
           } else if (analisis.errorDetectado === false) {
-            respuestaFinal = `📸 ✅ *¡Tu ejercicio está correcto!*\n\n${analisis.mensajeMotivador || '¡Excelente trabajo! 🏆'}`;
+            respuestaFinal += `📸 ✅ *¡Tu ejercicio está correcto!*\n\n${analisis.mensajeMotivador || '¡Excelente trabajo! 🏆'}`;
           } else {
-            respuestaFinal = analisis.mensajeMotivador || '📸 No alcancé a leer bien tu ejercicio. ¿Podrías tomarle una foto con mejor iluminación? 📸';
+            respuestaFinal += analisis.mensajeMotivador || '📸 No alcancé a leer bien tu ejercicio. ¿Podrías tomarle una foto con mejor iluminación? 📸';
           }
         } else {
-          respuestaFinal = '📸 No pude descargar la imagen. ¿Podrías enviarla de nuevo?';
+          respuestaFinal += '📸 No pude descargar la imagen. ¿Podrías enviarla de nuevo?';
         }
       } catch (imgError) {
         console.error('❌ Error procesando imagen:', imgError.message);
-        respuestaFinal = '📸 Tuve un problema analizando tu foto. Intenta enviarla de nuevo con buena iluminación.';
+        respuestaFinal += '📸 Tuve un problema analizando tu foto. Intenta enviarla de nuevo con buena iluminación.';
       }
 
     // ── CASO 2: Mensaje con AUDIO (nota de voz) ──
@@ -181,30 +176,42 @@ router.post('/whatsapp', async (req, res) => {
         const audioBuffer = await descargarMediaTwilio(mediaUrl);
 
         if (audioBuffer) {
-          const analisis = await procesarAudioDuda(audioBuffer, mediaType, 'General', 'secundaria');
+          const analisis = await procesarAudioDuda(
+            audioBuffer, mediaType,
+            estudiante.materiaActual, estudiante.nivelEducativo
+          );
 
-          respuestaFinal = `🎙️ *Escuché tu nota de voz*\n\n📝 Lo que entendí: _"${analisis.transcripcion?.substring(0, 200) || 'Procesado'}..."_\n\n📌 *Puntos clave:*\n${(analisis.resumen || []).map(p => `• ${p}`).join('\n')}\n\n🧠 ${analisis.respuestaSocratica || ''}\n\n❓ *Preguntas para reflexionar:*\n${(analisis.preguntasRepaso || []).map(p => `• ${p}`).join('\n')}`;
+          respuestaFinal += `🎙️ *Escuché tu nota de voz*\n\n📝 Lo que entendí: _"${analisis.transcripcion?.substring(0, 200) || 'Procesado'}..."_\n\n📌 *Puntos clave:*\n${(analisis.resumen || []).map(p => `• ${p}`).join('\n')}\n\n🧠 ${analisis.respuestaSocratica || ''}\n\n❓ *Preguntas para reflexionar:*\n${(analisis.preguntasRepaso || []).map(p => `• ${p}`).join('\n')}`;
         } else {
-          respuestaFinal = '🎙️ No pude procesar tu nota de voz. ¿Puedes enviarla de nuevo?';
+          respuestaFinal += '🎙️ No pude procesar tu nota de voz. ¿Puedes enviarla de nuevo?';
         }
       } catch (audioError) {
         console.error('❌ Error procesando audio:', audioError.message);
-        respuestaFinal = '🎙️ Tuve un problema con tu audio. Intenta grabarlo de nuevo.';
+        respuestaFinal += '🎙️ Tuve un problema con tu audio. Intenta grabarlo de nuevo.';
       }
 
     // ── CASO 3: Mensaje de TEXTO ──
     } else if (mensajeTexto) {
-
-      // Comandos especiales
       const textoLower = mensajeTexto.toLowerCase().trim();
 
-      if (textoLower === 'quiz' || textoLower === 'examen' || textoLower === 'evaluame') {
-        // Generar un quiz rápido
+      // ── Comandos de perfil: "nivel X" o "materia X" ──
+      const resultadoPerfil = await procesarComandoPerfil(textoLower, remitente);
+
+      if (resultadoPerfil.esComando) {
+        respuestaFinal += resultadoPerfil.respuesta;
+
+      } else if (textoLower === 'quiz' || textoLower === 'examen' || textoLower === 'evaluame') {
+        // Generar quiz personalizado con el nivel y materia real del estudiante
         try {
-          const quiz = await generarQuizAdaptativo('Repaso General', 'secundaria', 3, 'intermedio');
+          const quiz = await generarQuizAdaptativo(
+            estudiante.materiaActual,
+            estudiante.nivelEducativo,
+            3,
+            'intermedio'
+          );
           const preguntas = quiz.preguntas || [];
 
-          respuestaFinal = `📝 *Quiz Rápido — ${quiz.tema || 'Repaso'}*\n\n`;
+          respuestaFinal += `📝 *Quiz — ${quiz.tema || estudiante.materiaActual}* (${estudiante.nivelEducativo})\n\n`;
           preguntas.forEach((p, i) => {
             respuestaFinal += `*${i + 1}. ${p.pregunta}*\n`;
             (p.opciones || []).forEach((op, j) => {
@@ -213,9 +220,9 @@ router.post('/whatsapp', async (req, res) => {
             });
             respuestaFinal += '\n';
           });
-          respuestaFinal += `\n💬 _Responde con las letras de tus respuestas (ej: "A, C, B") y te digo cómo te fue._`;
+          respuestaFinal += `\n💬 _Responde con las letras (ej: "A, C, B") y te digo cómo te fue._`;
         } catch (quizError) {
-          respuestaFinal = '📝 No pude generar el quiz en este momento. Intenta de nuevo en unos segundos.';
+          respuestaFinal += '📝 No pude generar el quiz. Intenta de nuevo en unos segundos.';
         }
 
       } else if (textoLower === 'reiniciar' || textoLower === 'reset' || textoLower === 'nuevo tema') {
@@ -226,31 +233,33 @@ router.post('/whatsapp', async (req, res) => {
           const docId = remitente.replace(/[^a-zA-Z0-9]/g, '_');
           db.collection(COLLECTION_HISTORIAL_WA).doc(docId).delete().catch(() => {});
         }
-        respuestaFinal = '🔄 ¡Listo! Historial limpiado. ¿Sobre qué tema quieres estudiar ahora?';
+        respuestaFinal += '🔄 ¡Listo! Historial limpiado. ¿Sobre qué tema quieres estudiar ahora?';
+
+      } else if (textoLower === 'perfil' || textoLower === 'mi perfil') {
+        // Mostrar perfil actual del estudiante
+        respuestaFinal += `👤 *Tu perfil de aprendizaje:*\n\n📚 Nivel: *${estudiante.nivelEducativo}*\n🔬 Materia: *${estudiante.materiaActual}*\n\nPara cambiar: escribe *"nivel preparatoria"* o *"materia Física"*`;
 
       } else if (textoLower === 'ayuda' || textoLower === 'help' || textoLower === 'menu') {
-        respuestaFinal = `🧠 *Synapse — Tu Tutor IA*\n\n¿Qué puedo hacer por ti?\n\n📝 *Envíame tu duda* → Te guío paso a paso\n📸 *Envía foto de tu cuaderno* → Reviso tu ejercicio\n🎙️ *Envía nota de voz* → Escucho y te ayudo\n📋 Escribe *"quiz"* → Te hago un examen rápido\n🔄 Escribe *"reiniciar"* → Empezar tema nuevo\n\n💡 _Recuerda: no te doy la respuesta directa, ¡te ayudo a que TÚ la descubras!_`;
+        respuestaFinal += `🧠 *Synapse — Tu Tutor IA*\n\n¿Qué puedo hacer por ti?\n\n📝 *Envíame tu duda* → Te guío paso a paso\n📸 *Envía foto de tu cuaderno* → Reviso tu ejercicio\n🎙️ *Envía nota de voz* → Escucho y te ayudo\n📋 Escribe *"quiz"* → Examen personalizado\n🔄 Escribe *"reiniciar"* → Empezar tema nuevo\n🎯 Escribe *"nivel [primaria/secundaria/prepa/uni]"* → Ajusta tu nivel\n📚 Escribe *"materia [nombre]"* → Cambia tu materia\n👤 Escribe *"perfil"* → Ver tu configuración\n\n💡 _No te doy respuestas directas, ¡te ayudo a descubrirlas!_\n\n📅 *Tu perfil:* Nivel: ${estudiante.nivelEducativo} | Materia: ${estudiante.materiaActual}`;
 
       } else {
-        // Chat normal con el tutor socrático
+        // Chat normal con el tutor socrático usando el perfil real
         const historial = await obtenerHistorial(remitente);
         const resultado = await procesarMensajeTutor(mensajeTexto, estudiante, historial);
 
-        // Guardar en historial (caché + Firestore)
         await agregarAlHistorial(remitente, 'user', mensajeTexto);
         await agregarAlHistorial(remitente, 'model', resultado.respuesta);
 
-        respuestaFinal = resultado.respuesta;
+        respuestaFinal += resultado.respuesta;
 
-        // Si se generó un quiz automático, notificar
         if (resultado.generarQuiz) {
-          respuestaFinal += '\n\n📝 _Parece que ya dominas este tema. Escribe "quiz" para evaluarte._';
+          respuestaFinal += '\n\n📝 _Parece que dominas este tema. Escribe "quiz" para evaluarte._';
         }
       }
 
     } else {
       // Mensaje vacío
-      respuestaFinal = '🧠 ¡Hola! Soy Synapse, tu tutor IA. Envíame tu duda, una foto de tu cuaderno o una nota de voz y te ayudo. Escribe *"ayuda"* para ver todas las opciones.';
+      respuestaFinal += '🧠 ¡Hola! Soy Synapse, tu tutor IA. Envíame tu duda, una foto de tu cuaderno o una nota de voz y te ayudo. Escribe *"ayuda"* para ver todas las opciones.';
     }
 
     // ── Enviar respuesta TwiML ──
@@ -268,12 +277,7 @@ router.post('/whatsapp', async (req, res) => {
 // VERIFICACIÓN GET (requerido por Twilio/Meta para verificar el webhook)
 // ─────────────────────────────────────────────
 
-/**
- * GET /api/webhook/whatsapp
- * Twilio y Meta envían un GET de verificación al configurar el webhook.
- */
 router.get('/whatsapp', (req, res) => {
-  // Meta API verification
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
@@ -283,7 +287,6 @@ router.get('/whatsapp', (req, res) => {
     return res.status(200).send(challenge);
   }
 
-  // Verificación genérica
   res.status(200).json({
     status: 'ok',
     servicio: 'Synapse WhatsApp Webhook',
@@ -295,13 +298,6 @@ router.get('/whatsapp', (req, res) => {
 // UTILIDAD: Descargar media de Twilio
 // ─────────────────────────────────────────────
 
-/**
- * Descarga un archivo multimedia (imagen/audio) desde los servidores de Twilio.
- * Requiere credenciales de autenticación.
- *
- * @param {string} mediaUrl - URL del media proporcionada por Twilio
- * @returns {Buffer|null} Buffer del archivo o null si falla
- */
 async function descargarMediaTwilio(mediaUrl) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -315,9 +311,7 @@ async function descargarMediaTwilio(mediaUrl) {
     const credenciales = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
 
     const response = await fetch(mediaUrl, {
-      headers: {
-        'Authorization': `Basic ${credenciales}`
-      }
+      headers: { 'Authorization': `Basic ${credenciales}` }
     });
 
     if (!response.ok) {

@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "node --watch backend/server.js",
     "start": "node backend/server.js",
+    "test": "node backend/tests/agentes.test.js",
     "tunnel": "npx -y localtunnel --port 3000 --subdomain synapse-tutor"
   },
+
   "keywords": [
     "gemini",
     "education",
