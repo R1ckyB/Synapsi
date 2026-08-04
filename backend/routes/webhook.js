@@ -10,34 +10,81 @@ const { procesarMensajeTutor } = require('../agents/tutorSocratico');
 const { generarQuizAdaptativo } = require('../agents/quizGenerator');
 const { procesarAudioDuda } = require('../agents/audioProcessor');
 const { analizarFotoCuaderno } = require('../agents/imageAnalyzer');
+const { getDb } = require('../config/firebase');
 
 // ─────────────────────────────────────────────
-// Almacenamiento en memoria del historial por usuario
-// En producción esto se conectaría a Firestore
+// Historial persistente en Firestore + caché local en memoria
+// El caché acelera las lecturas; Firestore garantiza persistencia
+// entre reinicios y en entornos multi-instancia.
 // ─────────────────────────────────────────────
-const historialesPorUsuario = new Map();
-const MAX_HISTORIAL = 20; // Máximo de mensajes en memoria por usuario
+const COLLECTION_HISTORIAL_WA = 'historial_whatsapp';
+const MAX_HISTORIAL = 20; // Máximo de mensajes por usuario
+const cachHistorial = new Map(); // Caché en memoria para el proceso actual
 
 /**
- * Obtiene o crea el historial de un usuario de WhatsApp.
+ * Obtiene el historial de conversación de un usuario.
+ * Primero consulta el caché local; si no existe, lo carga desde Firestore.
+ *
+ * @param {string} remitente - Número de WhatsApp (usado como ID del documento)
+ * @returns {Array} Historial de mensajes [{role, text}]
  */
-function obtenerHistorial(remitente) {
-  if (!historialesPorUsuario.has(remitente)) {
-    historialesPorUsuario.set(remitente, []);
+async function obtenerHistorial(remitente) {
+  // 1. Retornar desde caché si ya está en memoria
+  if (cachHistorial.has(remitente)) {
+    return cachHistorial.get(remitente);
   }
-  return historialesPorUsuario.get(remitente);
+
+  // 2. Intentar cargar desde Firestore
+  const db = getDb();
+  if (db) {
+    try {
+      const docId = remitente.replace(/[^a-zA-Z0-9]/g, '_');
+      const docRef = db.collection(COLLECTION_HISTORIAL_WA).doc(docId);
+      const doc = await docRef.get();
+
+      if (doc.exists) {
+        const historial = doc.data().mensajes || [];
+        cachHistorial.set(remitente, historial);
+        return historial;
+      }
+    } catch (err) {
+      console.warn('⚠️ No se pudo cargar historial de Firestore:', err.message);
+    }
+  }
+
+  // 3. Fallback: historial vacío
+  cachHistorial.set(remitente, []);
+  return cachHistorial.get(remitente);
 }
 
 /**
- * Agrega un mensaje al historial del usuario y limita el tamaño.
+ * Agrega un mensaje al historial del usuario y lo persiste en Firestore.
+ * Limita el historial a MAX_HISTORIAL mensajes para controlar el tamaño.
+ *
+ * @param {string} remitente - Número de WhatsApp
+ * @param {string} role - Rol del mensaje ('user' | 'model')
+ * @param {string} text - Contenido del mensaje
  */
-function agregarAlHistorial(remitente, role, text) {
-  const historial = obtenerHistorial(remitente);
-  historial.push({ role, text });
+async function agregarAlHistorial(remitente, role, text) {
+  const historial = await obtenerHistorial(remitente);
+  historial.push({ role, text, timestamp: new Date().toISOString() });
 
-  // Mantener solo los últimos MAX_HISTORIAL mensajes
+  // Limitar tamaño en memoria
   if (historial.length > MAX_HISTORIAL) {
     historial.splice(0, historial.length - MAX_HISTORIAL);
+  }
+
+  // Persistir en Firestore de forma asíncrona (sin bloquear la respuesta)
+  const db = getDb();
+  if (db) {
+    const docId = remitente.replace(/[^a-zA-Z0-9]/g, '_');
+    db.collection(COLLECTION_HISTORIAL_WA).doc(docId).set({
+      remitente,
+      mensajes: historial,
+      ultimaActividad: new Date().toISOString()
+    }, { merge: true }).catch(err => {
+      console.warn('⚠️ No se pudo guardar historial en Firestore:', err.message);
+    });
   }
 }
 
@@ -172,8 +219,13 @@ router.post('/whatsapp', async (req, res) => {
         }
 
       } else if (textoLower === 'reiniciar' || textoLower === 'reset' || textoLower === 'nuevo tema') {
-        // Limpiar historial
-        historialesPorUsuario.delete(remitente);
+        // Limpiar historial en caché y en Firestore
+        cachHistorial.delete(remitente);
+        const db = getDb();
+        if (db) {
+          const docId = remitente.replace(/[^a-zA-Z0-9]/g, '_');
+          db.collection(COLLECTION_HISTORIAL_WA).doc(docId).delete().catch(() => {});
+        }
         respuestaFinal = '🔄 ¡Listo! Historial limpiado. ¿Sobre qué tema quieres estudiar ahora?';
 
       } else if (textoLower === 'ayuda' || textoLower === 'help' || textoLower === 'menu') {
@@ -181,12 +233,12 @@ router.post('/whatsapp', async (req, res) => {
 
       } else {
         // Chat normal con el tutor socrático
-        const historial = obtenerHistorial(remitente);
+        const historial = await obtenerHistorial(remitente);
         const resultado = await procesarMensajeTutor(mensajeTexto, estudiante, historial);
 
-        // Guardar en historial local
-        agregarAlHistorial(remitente, 'user', mensajeTexto);
-        agregarAlHistorial(remitente, 'model', resultado.respuesta);
+        // Guardar en historial (caché + Firestore)
+        await agregarAlHistorial(remitente, 'user', mensajeTexto);
+        await agregarAlHistorial(remitente, 'model', resultado.respuesta);
 
         respuestaFinal = resultado.respuesta;
 
