@@ -11,6 +11,8 @@ require('dotenv').config();
 const { initFirebase } = require('./config/firebase');
 const { verificarToken, verificarProfesor } = require('./middleware/authMiddleware');
 const { limiterIA, limiterQuiz, limiterAuth, limiterProfesor } = require('./middleware/rateLimiter');
+const { validarMensajeTutoria, validarGenerarQuiz } = require('./middleware/inputValidator');
+const logger = require('./utils/logger');
 
 // Inicializar Firebase
 initFirebase();
@@ -26,12 +28,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Servir estáticos del frontend si existen
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
-// Logger de peticiones HTTP
-app.use((req, res, next) => {
-  const timestamp = new Date().toLocaleTimeString('es-MX');
-  console.log(`[${timestamp}] ${req.method} ${req.path}`);
-  next();
-});
+// Logger HTTP estructurado (reemplaza console.log genérico)
+app.use(logger.requestLogger);
 
 // ── Rutas de la API ──
 const authRouter     = require('./routes/auth');
@@ -44,11 +42,11 @@ const webhookRouter  = require('./routes/webhook');
 
 // Rutas públicas (sin auth)
 app.use('/api/auth',    limiterAuth, authRouter);
-app.use('/api/webhook', webhookRouter); // Twilio no envía token de Firebase
+app.use('/api/webhook', webhookRouter);
 
-// Rutas protegidas (requieren Firebase ID Token + rate limiting)
-app.use('/api/tutoria',    limiterIA,       verificarToken,    tutoriaRouter);
-app.use('/api/quizzes',    limiterQuiz,     verificarToken,    quizzesRouter);
+// Rutas protegidas (Firebase ID Token + rate limiting + validación de input)
+app.use('/api/tutoria',    limiterIA,       verificarToken,    validarMensajeTutoria, tutoriaRouter);
+app.use('/api/quizzes',    limiterQuiz,     verificarToken,    validarGenerarQuiz,    quizzesRouter);
 app.use('/api/audio',      limiterIA,       verificarToken,    audioRouter);
 app.use('/api/imagen',     limiterIA,       verificarToken,    imagenRouter);
 app.use('/api/profesores', limiterProfesor, verificarProfesor, profesoresRouter);
@@ -86,7 +84,7 @@ app.get('/api/health', (req, res) => {
 
 // Manejo de errores global
 app.use((err, req, res, next) => {
-  console.error('❌ Error no controlado:', err.message);
+  logger.error('Error no controlado', { error: err.message, ruta: req.path, uid: req.usuario?.uid });
   res.status(err.status || 500).json({
     error: true,
     mensaje: process.env.NODE_ENV === 'development' ? err.message : 'Error interno del servidor'
@@ -95,17 +93,12 @@ app.use((err, req, res, next) => {
 
 // Iniciar servidor
 app.listen(PORT, () => {
-  console.log('');
-  console.log('🧠 ═════════════════════════════════════════════');
-  console.log('🧠  Synapse Backend Server v2.1.0');
-  console.log(`🧠  Servidor activo en: http://localhost:${PORT}`);
-  console.log('🧠  Modelo IA: Gemini 2.0 Flash');
-  console.log('🧠  🔒 Auth: Firebase ID Token activo');
-  console.log('🧠  🚦 Rate Limiting: Activo por ruta');
-  console.log('🧠  💾 Historial WA: Firestore persistente');
-  console.log('🧠  Agentes: Tutor Socrático | Quiz | Imagen | Audio | Vacíos');
-  console.log('🧠 ═════════════════════════════════════════════');
-  console.log('');
+  logger.info(`Synapse Backend Server v2.1.0 activo en http://localhost:${PORT}`, {
+    modelo: 'gemini-2.0-flash',
+    auth: 'Firebase ID Token',
+    rateLimiting: 'activo',
+    historialWA: 'Firestore'
+  });
 });
 
 module.exports = app;

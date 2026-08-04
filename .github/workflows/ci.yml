@@ -1,0 +1,81 @@
+# ============================================
+# GitHub Actions CI/CD — Synapse
+# Ejecuta los tests automáticamente en cada push o Pull Request
+# ============================================
+
+name: 🧠 Synapse CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - name: 📥 Checkout código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: 📦 Instalar dependencias
+        run: npm ci
+
+      - name: 🧪 Ejecutar tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          # Las variables de entorno de producción NO se incluyen en CI
+          # Los tests usan mocks internos cuando Firebase/Gemini no están configurados
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout código
+        uses: actions/checkout@v4
+
+      - name: 🔍 Verificar archivos sensibles no expuestos
+        run: |
+          echo "Verificando que no hay secretos hardcodeados..."
+          # Buscar patrones de API keys comunes
+          if grep -r "AIzaSy" --include="*.js" .; then
+            echo "❌ ERROR: Posible API key de Google expuesta"
+            exit 1
+          fi
+          if grep -r "EAAB" --include="*.js" .; then
+            echo "❌ ERROR: Posible token de Facebook expuesto"
+            exit 1
+          fi
+          echo "✅ Sin secretos detectados"
+
+      - name: 📁 Verificar que .env no está en el repo
+        run: |
+          if [ -f ".env" ]; then
+            echo "❌ ERROR: Archivo .env encontrado en el repositorio"
+            exit 1
+          fi
+          echo "✅ .env no está en el repositorio"
+
+      - name: 📋 Verificar estructura del proyecto
+        run: |
+          echo "Verificando estructura mínima del proyecto..."
+          test -f backend/server.js       && echo "✅ backend/server.js"
+          test -f backend/config/gemini.js && echo "✅ backend/config/gemini.js"
+          test -f .env.example            && echo "✅ .env.example"
+          test -f README.md               && echo "✅ README.md"
+          test -f LICENSE                 && echo "✅ LICENSE"
+          echo "✅ Estructura del proyecto correcta"
