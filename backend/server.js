@@ -14,11 +14,20 @@ const { limiterIA, limiterQuiz, limiterAuth, limiterProfesor } = require('./midd
 const { validarMensajeTutoria, validarGenerarQuiz } = require('./middleware/inputValidator');
 const logger = require('./utils/logger');
 
-// Inicializar Firebase
-initFirebase();
+// Inicializar Firebase de forma segura
+try {
+  initFirebase();
+} catch (e) {
+  console.warn('⚠️ Firebase init warning:', e.message);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Ruta raíz de verificación de salud para Google Cloud Run
+app.get('/', (req, res) => {
+  res.status(200).send('Synapse Backend Server is live and healthy 🚀');
+});
 
 // ── Middlewares globales ──
 

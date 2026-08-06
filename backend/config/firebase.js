@@ -30,13 +30,17 @@ function initFirebase() {
         });
         console.log('🔥 Firebase Admin SDK inicializado con archivo de credenciales');
       } else {
-        // Opción 2: Application Default Credentials (gcloud ADC)
-        console.log('🔥 Usando Application Default Credentials (gcloud ADC)...');
-        admin.initializeApp({
-          credential: admin.credential.applicationDefault(),
-          projectId: projectId
-        });
-        console.log(`🔥 Firebase Admin SDK inicializado con ADC — proyecto: ${projectId}`);
+        // Opción 2: Application Default Credentials (gcloud ADC) con fallback
+        try {
+          admin.initializeApp({
+            credential: admin.credential.applicationDefault(),
+            projectId: projectId
+          });
+          console.log(`🔥 Firebase Admin SDK inicializado con ADC — proyecto: ${projectId}`);
+        } catch (adcErr) {
+          admin.initializeApp({ projectId: projectId });
+          console.log(`🔥 Firebase Admin SDK inicializado con Project ID fallback: ${projectId}`);
+        }
       }
     }
 
