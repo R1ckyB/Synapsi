@@ -275,13 +275,16 @@ function requestQuiz() {
   sendMessage(`Genera un quiz de 3 preguntas sobre ${materia} para evaluar lo que hemos estado practicando.`);
 }
 
-/* ── QUESTION OF THE DAY ─────────────────────────────────── */
+/* ── QUESTION OF THE DAY (IA GEMINI) ─────────────────────── */
 function sendQuestionOfDay() {
-  const q = document.getElementById('pregunta-dia')?.textContent;
-  if (q && q !== 'Cargando pregunta del día...') {
-    showView('chat');
-    setTimeout(() => sendMessage(q), 200);
-  }
+  const materia = window.SynapseState.materiaActual || 'Matemáticas';
+  const user = window.SynapseState.user || {};
+  const nivel = user.nivelEducativo || 'secundaria';
+  
+  showView('chat');
+  setTimeout(() => {
+    sendMessage(`Dame el reto del día de ${materia} adaptado a nivel ${nivel}. Plantéame una pregunta socrática o acertijo interesante para empezar a razonar.`);
+  }, 200);
 }
 
 /* ── IMAGE FROM CHAT ─────────────────────────────────────── */
