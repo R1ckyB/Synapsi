@@ -6,7 +6,12 @@
 
 const express = require('express');
 const router = express.Router();
-const twilio = require('twilio'); // FIX #2 — Validación firma HMAC de Twilio
+let twilio = null;
+try {
+  twilio = require('twilio');
+} catch (e) {
+  console.warn('⚠️ twilio package no disponible');
+}
 const { procesarMensajeTutor } = require('../agents/tutorSocratico');
 const { generarQuizAdaptativo } = require('../agents/quizGenerator');
 const { procesarAudioDuda } = require('../agents/audioProcessor');
@@ -53,12 +58,12 @@ setInterval(() => {
  */
 function validarFirmaTwilio(req) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  // En desarrollo (sin token configurado) se omite la validación
-  if (!authToken || process.env.NODE_ENV !== 'production') return true;
+  // En desarrollo (o si twilio/authToken no están configurados) se omite la validación
+  if (!twilio || !authToken || process.env.NODE_ENV !== 'production') return true;
 
   const signature = req.headers['x-twilio-signature'] || '';
   // La URL debe ser la URL pública completa del webhook
-  const url = `${process.env.BASE_URL || 'https://TU-DOMINIO.com'}/api/webhook/whatsapp`;
+  const url = `${process.env.BASE_URL || 'https://synapse-backend-316597665743.us-central1.run.app'}/api/webhook/whatsapp`;
   return twilio.validateRequest(authToken, signature, url, req.body);
 }
 
