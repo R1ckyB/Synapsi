@@ -36,6 +36,15 @@ app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 // Servir estáticos del frontend si existen
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
+// ── Rutas amigables (Clean URLs) ──
+app.get(['/app', '/dashboard', '/tutor'], (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'frontend', 'dashboard.html'));
+});
+
+app.get(['/profesor', '/docente'], (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'frontend', 'profesor.html'));
+});
+
 // Logger HTTP estructurado (reemplaza console.log genérico)
 app.use(logger.requestLogger);
 
