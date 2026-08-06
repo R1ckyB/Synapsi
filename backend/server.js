@@ -24,11 +24,6 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Ruta raíz de verificación de salud para Google Cloud Run
-app.get('/', (req, res) => {
-  res.status(200).send('Synapse Backend Server is live and healthy 🚀');
-});
-
 // ── Middlewares globales ──
 
 // CORS permisivo para API pública y Cloud Run
