@@ -34,7 +34,7 @@ async function test(nombre, fn) {
 async function testTutorSocratico() {
   console.log('\n📋 Suite 1: Tutor Socrático — detectarEstadoEmocional');
 
-  const { detectarEstadoEmocional } = require('./agents/tutorSocratico');
+  const { detectarEstadoEmocional } = require('../agents/tutorSocratico');
 
   await test('Detecta frustración con "no entiendo"', () => {
     assert.strictEqual(detectarEstadoEmocional('no entiendo nada de esto'), 'frustrado');
@@ -71,7 +71,7 @@ async function testTutorSocratico() {
 async function testQuizGenerator() {
   console.log('\n📋 Suite 2: Quiz Generator — evaluarQuiz');
 
-  const { evaluarQuiz } = require('./agents/quizGenerator');
+  const { evaluarQuiz } = require('../agents/quizGenerator');
 
   const quizMock = {
     preguntas: [
@@ -128,7 +128,7 @@ async function testQuizGenerator() {
 async function testRateLimiter() {
   console.log('\n📋 Suite 3: Rate Limiter — lógica de contadores');
 
-  const { crearRateLimiter } = require('./middleware/rateLimiter');
+  const { crearRateLimiter } = require('../middleware/rateLimiter');
 
   await test('Permite peticiones dentro del límite', async () => {
     const limiter = crearRateLimiter({ max: 3, ventanaMs: 5000 });
@@ -177,11 +177,11 @@ async function testPerfilWhatsapp() {
   console.log('\n📋 Suite 4: Perfil WhatsApp — procesarComandoPerfil (mock Firestore)');
 
   // Parchear getDb para que devuelva null (modo mock)
-  const firebase = require('./config/firebase');
+  const firebase = require('../config/firebase');
   const getDbOriginal = firebase.getDb;
   firebase.getDb = () => null;
 
-  const { procesarComandoPerfil } = require('./services/perfilWhatsappService');
+  const { procesarComandoPerfil } = require('../services/perfilWhatsappService');
 
   await test('Detecta comando "nivel secundaria"', async () => {
     const resultado = await procesarComandoPerfil('nivel secundaria', 'whatsapp:+521111111111');
