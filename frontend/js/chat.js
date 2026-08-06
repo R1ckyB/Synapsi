@@ -252,6 +252,9 @@ function cambiarMateria(materia) {
   window.SynapseState.materiaActual = materia;
   const el = document.getElementById('stat-materia-actual');
   if (el) el.textContent = materia;
+  if (typeof actualizarPreguntaDia === 'function') {
+    actualizarPreguntaDia(materia);
+  }
   showToast(`Materia cambiada a ${materia} 📚`, 'info', 2000);
 }
 

@@ -643,6 +643,16 @@
   }
   .topbar {
     padding: 0 var(--sp-md) !important;
+    height: 56px !important;
+  }
+  .page-breadcrumb {
+    display: none !important;
+  }
+  .page-title {
+    font-size: 0.95rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
   .views-container {
     flex: 1 !important;

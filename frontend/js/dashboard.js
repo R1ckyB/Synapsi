@@ -89,10 +89,8 @@ function initDashboard() {
   const statNivel = document.getElementById('stat-nivel');
   if (statNivel) statNivel.textContent = nivelLabel(user.nivelEducativo);
 
-  // Load daily question
-  const q = SYNAPSE_CONFIG.PREGUNTAS_DIA[new Date().getDay() % SYNAPSE_CONFIG.PREGUNTAS_DIA.length];
-  const pregEl = document.getElementById('pregunta-dia');
-  if (pregEl) pregEl.textContent = q;
+  // Load daily question based on subject
+  actualizarPreguntaDia(user.materiaActual || 'General');
 
   // Racha — primero desde API, fallback a localStorage
   const rachaLocal = user.racha ?? 0;
@@ -261,6 +259,19 @@ function renderMateriasView() {
 }
 
 /* ── HELPERS ─────────────────────────────────────────────── */
+function actualizarPreguntaDia(materia) {
+  const m = materia || window.SynapseState.materiaActual || 'General';
+  const preguntasObj = SYNAPSE_CONFIG.PREGUNTAS_DIA || {};
+  const preguntasList = preguntasObj[m] || preguntasObj['General'] || [];
+  
+  if (preguntasList.length) {
+    const dayIndex = new Date().getDay() % preguntasList.length;
+    const q = preguntasList[dayIndex];
+    const pregEl = document.getElementById('pregunta-dia');
+    if (pregEl) pregEl.textContent = q;
+  }
+}
+
 function nivelLabel(nivel) {
   const map = {
     primaria:    '🏫 Primaria',
