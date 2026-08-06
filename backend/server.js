@@ -22,25 +22,8 @@ const PORT = process.env.PORT || 3000;
 
 // ── Middlewares globales ──
 
-// FIX #1 — CORS restringido con soporte para Cloud Run y desarrollo local
-const origenesPermitidos = [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'https://synapse-backend-316597665743.us-central1.run.app'
-];
-app.use(cors({
-  origin: function (origin, callback) {
-    // Permite requests sin origin (misma origen, Postman, apps móviles, curl)
-    if (!origin) return callback(null, true);
-    if (origenesPermitidos.includes(origin) || origin.endsWith('.run.app')) {
-      return callback(null, true);
-    }
-    return callback(new Error(`CORS bloqueado: origen no permitido → ${origin}`));
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+// CORS permisivo para API pública y Cloud Run
+app.use(cors());
 
 // FIX #5 — Límite global pequeño para endpoints de texto (protección DoS)
 app.use(express.json({ limit: '100kb' }));

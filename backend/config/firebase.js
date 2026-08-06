@@ -21,21 +21,23 @@ function initFirebase() {
   const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'project-7b7f1c13-3404-4ad7-b7d';
 
   try {
-    if (fs.existsSync(fullPath)) {
-      // Opción 1: Archivo JSON de cuenta de servicio
-      const serviceAccount = require(fullPath);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-      console.log('🔥 Firebase Admin SDK inicializado con archivo de credenciales');
-    } else {
-      // Opción 2: Application Default Credentials (gcloud auth application-default login)
-      console.log('🔥 Usando Application Default Credentials (gcloud ADC)...');
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-        projectId: projectId
-      });
-      console.log(`🔥 Firebase Admin SDK inicializado con ADC — proyecto: ${projectId}`);
+    if (!admin.apps.length) {
+      if (fs.existsSync(fullPath)) {
+        // Opción 1: Archivo JSON de cuenta de servicio
+        const serviceAccount = require(fullPath);
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount)
+        });
+        console.log('🔥 Firebase Admin SDK inicializado con archivo de credenciales');
+      } else {
+        // Opción 2: Application Default Credentials (gcloud ADC)
+        console.log('🔥 Usando Application Default Credentials (gcloud ADC)...');
+        admin.initializeApp({
+          credential: admin.credential.applicationDefault(),
+          projectId: projectId
+        });
+        console.log(`🔥 Firebase Admin SDK inicializado con ADC — proyecto: ${projectId}`);
+      }
     }
 
     db = admin.firestore();
