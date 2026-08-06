@@ -609,28 +609,52 @@
 .empty-state-text  { font-size: 0.85rem; }
 
 /* ══════════════════════════════════════════════════════════
-   FIX #12 — PARCHE RESPONSIVO PARA PANTALLAS EN MÓVIL
+   MOBILE RESPONSIVE FIXES
 ══════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
   body {
-    background-color: #080b14 !important;
+    background-color: var(--clr-bg);
   }
   .app-shell {
-    display: flex !important;
-    flex-direction: column !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 100% !important;
     height: 100vh !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+  .sidebar {
+    position: fixed !important;
+    left: -280px; top: 0; bottom: 0;
+    width: 260px !important;
+    z-index: 200 !important;
+    height: 100% !important;
+  }
+  .sidebar.open {
+    left: 0 !important;
   }
   .main-content {
-    flex: 1 !important;
-    width: 100% !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
+    overflow: hidden !important;
   }
-  /* La vista activa siempre debe ser visible y ocupar el 100% del contenedor */
+  .topbar {
+    padding: 0 var(--sp-md) !important;
+  }
+  .views-container {
+    flex: 1 !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
   .view.active {
     display: flex !important;
     flex-direction: column !important;
-    flex: 1 !important;
-    height: 100% !important;
+    position: absolute !important;
+    inset: 0 !important;
+    overflow-y: auto !important;
+    padding: var(--sp-md) !important;
   }
 }
