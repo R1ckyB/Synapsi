@@ -19,7 +19,7 @@
     "whatsapp",
     "xprize"
   ],
-  "license": "MIT",
+  "license": "Proprietary",
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
     "cors": "^2.8.5",
