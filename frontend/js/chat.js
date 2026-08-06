@@ -334,12 +334,38 @@ async function sendImageFromChat() {
 
 /* ── DEMO RESPONSES ──────────────────────────────────────── */
 function getDemoResponse(msg, materia) {
+  const texto = (msg || '').toLowerCase().trim();
+
+  // Saludos e inicio de conversación
+  if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|saludos|que tal)/i.test(texto)) {
+    return `¡Hola! 👋 Qué gusto saludarte. Estoy listo para ayudarte con **${materia}**. ¿En qué ejercicio o concepto específico quieres que trabajemos hoy?`;
+  }
+
+  // Agradecimientos
+  if (/(gracias|muchas gracias|agradecido|excelente|te lo agradezco)/i.test(texto)) {
+    return `¡Con mucho gusto! 🌟 Recuerda que el mérito es tuyo por reflexionar y razonar cada paso. ¿Tienes alguna otra duda de **${materia}** o quieres hacer un quiz corto de repaso?`;
+  }
+
+  // Expresiones de confusión o frustración
+  if (/(no entiendo|confundido|dificil|no se|ayuda|me perdi|complicado)/i.test(texto)) {
+    return `No te preocupes, es completamente normal en **${materia}**. Vamos a simplificarlo: si pudieras dividir este problema en dos partes más sencillas, ¿cuál sería el primer dato que conocemos? 🧩`;
+  }
+
+  // Petición explícita de respuestas directas
+  if (/(dame la respuesta|dime el resultado|resuelve|cuanto es|dime la solucion)/i.test(texto)) {
+    return `Entiendo que quieras la respuesta directa, pero mi objetivo es enseñarte a resolverlo tú mismo 💪. Para guiarte en **${materia}**: ¿qué fórmula o paso crees que deberíamos aplicar primero?`;
+  }
+
+  // Respuesta contextual según la longitud o temática del mensaje
+  if (texto.length < 15) {
+    return `Veo que mencionas "*${escapeHtml(msg)}*". ¿Podrías darme un poco más de contexto sobre tu duda en **${materia}**? Por ejemplo, ¿en qué paso del problema te trabaste? 🤔`;
+  }
+
   const responses = [
-    `¡Excelente pregunta sobre ${materia}! 🤔 Antes de darte la respuesta, te hago una pregunta: ¿qué elementos ya conoces sobre este tema? Describir lo que sabes me ayuda a guiarte mejor.`,
-    `Interesante. Veo que estás explorando **${materia}**. Para entender esto, primero dime: ¿qué crees tú que es lo más importante de lo que preguntas? El proceso de pensar es donde ocurre el aprendizaje real. 🧠`,
-    `Muy bien, estás en el camino correcto. Reflexiona un momento: si tuvieras que explicarle esto a un compañero con tus propias palabras, ¿cómo lo harías? Eso nos dará un punto de partida. 💡`,
-    `¡Me alegra que lo preguntes! Te hago una pregunta socrática: ¿puedes darme un ejemplo de la vida real donde esto se aplique? Los ejemplos concretos nos ayudan a anclar el aprendizaje abstracto. 🌍`,
-    `Mm, profundicemos. ¿Qué pasaría si cambiamos una variable del problema? Imagina el escenario contrario — ¿qué diferente sería el resultado? Pensar en extremos nos ayuda a entender los límites del concepto. ⚡`,
+    `Analizando tu duda sobre "*${escapeHtml(msg)}*" en **${materia}** 🧐: ¿qué regla o concepto básico recuerdas que se aplique en este tipo de ejercicios?`,
+    `Interesante planteamiento sobre "*${escapeHtml(msg)}*". Antes de darte la solución, cuéntame: ¿qué hipótesis tienes tú sobre por qué ocurre esto en **${materia}**? 🧠`,
+    `Muy buen intento al preguntar sobre "*${escapeHtml(msg)}*". Para avanzar juntos en **${materia}**: ¿cuál crees que sería el primer paso lógico para abordar este problema? 💡`,
+    `¡Excelente punto! En **${materia}**, al revisar "*${escapeHtml(msg)}*", ¿puedes identificar qué datos nos está dando el problema y qué nos están pidiendo encontrar? ⚡`,
   ];
   return responses[Math.floor(Math.random() * responses.length)];
 }
