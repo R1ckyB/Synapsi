@@ -50,8 +50,9 @@ function showView(viewId) {
 /* ── INIT DASHBOARD ──────────────────────────────────────── */
 function initDashboard() {
   let user = loadLocal('user');
+  
+  // FIX #12 — Si no hay usuario guardado (ej. al abrir directo en el celular), crea sesión invitada
   if (!user) {
-    // FIX #12b — Fallback para evitar redirección y pantallazo negro en móviles al entrar directo
     user = {
       uid: 'invitado-movil',
       nombre: 'Estudiante',
