@@ -69,33 +69,40 @@ async function handleLogin(event) {
   spn.classList.remove('hidden');
 
   try {
-    const data = await apiPost('/auth/login', { email, password });
+    // Intentar con Firebase Auth para email/contraseña
+    if (typeof auth !== 'undefined') {
+      const result = await auth.signInWithEmailAndPassword(email, password);
+      const firebaseUser = result.user;
+      const idToken = await firebaseUser.getIdToken().catch(() => '');
 
-    if (data.exito || data.token || data.usuario) {
-      const user = data.usuario || { email, nombre: email.split('@')[0], rol: 'estudiante', nivelEducativo: 'secundaria' };
+      const user = {
+        uid:            firebaseUser.uid,
+        nombre:         firebaseUser.displayName || email.split('@')[0],
+        email:          firebaseUser.email,
+        foto:           firebaseUser.photoURL,
+        rol:            'estudiante',
+        nivelEducativo: 'secundaria',
+      };
+
       saveLocal('user', user);
-      saveLocal('token', data.token || '');
+      if (idToken) saveLocal('token', idToken);
 
-      showToast(`¡Bienvenido, ${user.nombre || 'Estudiante'}! 🎉`, 'success');
+      showToast(`¡Bienvenido, ${user.nombre}! 🎉`, 'success');
       setTimeout(() => {
-        const dest = user.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
-        window.location.href = dest;
-      }, 800);
-    } else {
-      throw new Error(data.mensaje || 'Credenciales incorrectas');
+        window.location.href = user.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
+      }, 600);
+      return;
     }
   } catch (err) {
-    // Demo mode: allows login without real backend
-    if (err.message.includes('fetch') || err.message.includes('Failed') || err.message.includes('NetworkError')) {
-      handleDemoLogin(email);
-    } else {
-      showToast(err.message || 'Error al iniciar sesión', 'error');
+    if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      showToast('Contraseña incorrecta', 'error');
+      btn.disabled = false;
+      txt.textContent = 'Iniciar sesión';
+      spn.classList.add('hidden');
+      return;
     }
-  } finally {
-    btn.disabled = false;
-    txt.textContent = 'Iniciar sesión';
-    spn.classList.add('hidden');
   }
+  handleDemoLogin(email);
 }
 
 /* ── DEMO LOGIN (sin backend) ────────────────────────────── */
@@ -142,40 +149,43 @@ async function handleRegister(event) {
   spn.classList.remove('hidden');
 
   try {
-    const payload = {
-      nombre, email, password,
-      rol: selectedRole,
+    // Crear cuenta con Firebase Auth
+    const result = await auth.createUserWithEmailAndPassword(email, password);
+    const firebaseUser = result.user;
+
+    // Actualizar displayName
+    await firebaseUser.updateProfile({ displayName: nombre });
+
+    const idToken = await firebaseUser.getIdToken();
+
+    const user = {
+      uid:            firebaseUser.uid,
+      nombre,
+      email,
+      rol:            selectedRole,
       nivelEducativo: selectedRole === 'estudiante' ? selectedNivel : null,
     };
-    const data = await apiPost('/auth/register', payload);
 
-    if (data.exito || data.usuario) {
-      const user = data.usuario || { ...payload, uid: 'new-' + Date.now() };
-      saveLocal('user', user);
-      showToast('¡Cuenta creada! Bienvenido a Synapse 🎉', 'success');
-      setTimeout(() => {
-        window.location.href = selectedRole === 'profesor' ? 'profesor.html' : 'dashboard.html';
-      }, 800);
-    } else {
-      throw new Error(data.mensaje || 'Error al crear cuenta');
-    }
+    // Guardar perfil en backend (opcional)
+    try {
+      await apiPost('/auth/registro', { ...user, uid: firebaseUser.uid });
+    } catch (e) { /* ignore if backend offline */ }
+
+    saveLocal('user', user);
+    saveLocal('token', idToken);
+
+    showToast('¡Cuenta creada! Bienvenido a Synapse 🎉', 'success');
+    setTimeout(() => {
+      window.location.href = selectedRole === 'profesor' ? 'profesor.html' : 'dashboard.html';
+    }, 800);
+
   } catch (err) {
-    if (err.message.includes('fetch') || err.message.includes('Failed') || err.message.includes('NetworkError')) {
-      // Demo: create account locally
-      const demoUser = {
-        uid: 'new-' + Date.now(),
-        nombre, email, rol: selectedRole,
-        nivelEducativo: selectedNivel,
-        grupoId: 'grupo-demo', racha: 0, demo: true
-      };
-      saveLocal('user', demoUser);
-      showToast('🎭 Cuenta demo creada (sin backend)', 'info', 2000);
-      setTimeout(() => {
-        window.location.href = selectedRole === 'profesor' ? 'profesor.html' : 'dashboard.html';
-      }, 900);
-    } else {
-      showToast(err.message, 'error');
-    }
+    const msg = {
+      'auth/email-already-in-use': 'Ya existe una cuenta con ese correo. Inicia sesión.',
+      'auth/weak-password':        'La contraseña es muy débil (mínimo 6 caracteres)',
+      'auth/invalid-email':        'Correo electrónico inválido',
+    }[err.code] || err.message || 'Error al crear cuenta';
+    showToast(msg, 'error');
   } finally {
     btn.disabled = false;
     txt.textContent = 'Crear mi cuenta';
@@ -185,8 +195,71 @@ async function handleRegister(event) {
 
 /* ── GOOGLE LOGIN ────────────────────────────────────────── */
 async function handleGoogleLogin() {
-  showToast('Google Auth próximamente (requiere Firebase SDK)', 'info');
-  // TODO: implementar con Firebase Auth en el cliente
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  try {
+    showToast('Iniciando sesión con Google...', 'info', 2000);
+    
+    if (isMobile) {
+      // En celulares, usar Redirect para evitar bloqueos de Popups en Android/iOS
+      await auth.signInWithRedirect(googleProvider);
+    } else {
+      // En computadoras, usar Popup
+      const result = await auth.signInWithPopup(googleProvider);
+      await processGoogleUser(result.user);
+    }
+  } catch (err) {
+    if (err.code === 'auth/popup-closed-by-user') return;
+    if (err.code === 'auth/popup-blocked' || isMobile) {
+      // Fallback a Redirect si el popup fue bloqueado
+      try {
+        await auth.signInWithRedirect(googleProvider);
+        return;
+      } catch (redirectErr) {
+        console.error('Redirect error:', redirectErr);
+      }
+    }
+    console.error('Google login error:', err);
+    showToast('Error al conectar con Google. Intenta con correo.', 'error');
+  }
+}
+
+// Procesar usuario resultante de Google (popup o redirect)
+async function processGoogleUser(firebaseUser) {
+  if (!firebaseUser) return;
+  
+  const idToken = await firebaseUser.getIdToken().catch(() => '');
+
+  const user = {
+    uid:             firebaseUser.uid,
+    nombre:          firebaseUser.displayName || firebaseUser.email.split('@')[0],
+    email:           firebaseUser.email,
+    foto:            firebaseUser.photoURL,
+    rol:             'estudiante',
+    nivelEducativo:  'secundaria',
+    googleAuth:      true
+  };
+
+  saveLocal('user', user);
+  if (idToken) saveLocal('token', idToken);
+
+  showToast(`¡Bienvenido, ${user.nombre}! 🎉`, 'success');
+  setTimeout(() => {
+    window.location.href = user.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
+  }, 600);
+}
+
+// Listener para capturar resultado de Redirect (en celulares)
+if (typeof auth !== 'undefined') {
+  auth.getRedirectResult().then(result => {
+    if (result && result.user) {
+      processGoogleUser(result.user);
+    }
+  }).catch(err => {
+    if (err.code && err.code !== 'auth/null-user') {
+      console.warn('Redirect auth result error:', err);
+    }
+  });
 }
 
 /* ── LOGOUT ──────────────────────────────────────────────── */
@@ -194,15 +267,18 @@ function handleLogout() {
   clearLocal('user');
   clearLocal('token');
   clearLocal('historial');
+  if (typeof auth !== 'undefined') {
+    auth.signOut().catch(() => {});
+  }
   window.location.href = 'index.html';
 }
 
 /* ── GUARD: redirect if already logged in ─────────────────── */
 (function authGuard() {
-  // Only on auth page
   if (!document.getElementById('form-login')) return;
   const user = loadLocal('user');
-  if (user) {
+  if (user && user.uid) {
     window.location.href = user.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
   }
 })();
+

@@ -1,0 +1,10 @@
+# Archivos que Docker NO debe incluir en la imagen
+.env
+.env.local
+.git
+.gitignore
+node_modules
+*.log
+.github
+proyecto.zip
+firebase-credentials.json
