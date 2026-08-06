@@ -114,9 +114,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Iniciar servidor
-app.listen(PORT, () => {
-  logger.info(`Synapse Backend Server v2.1.0 activo en http://localhost:${PORT}`, {
+// Iniciar servidor (escuchando en 0.0.0.0 para contenedores Docker / Cloud Run)
+app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`Synapse Backend Server v2.1.0 activo en http://0.0.0.0:${PORT}`, {
     modelo: 'gemini-2.0-flash',
     auth: 'Firebase ID Token',
     rateLimiting: 'activo',
