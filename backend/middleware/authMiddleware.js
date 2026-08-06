@@ -24,6 +24,18 @@ async function verificarToken(req, res, next) {
 
   // ── Modo desarrollo sin Firebase configurado ──
   if (!auth) {
+    // FIX #4 — Guard de Firebase en producción
+    // Si estamos en producción y Firebase no está configurado, es un error fatal
+    if (process.env.NODE_ENV === 'production') {
+      console.error('🚨 FATAL: Firebase no configurado en producción. Rechazando request.');
+      return res.status(500).json({
+        error: true,
+        mensaje: 'Error de configuración del servidor. Contacta al administrador.'
+      });
+    }
+
+    // Solo en desarrollo: usuario de prueba para no bloquear el trabajo local
+    console.warn('⚠️  [DEV] Firebase no configurado. Usando usuario de prueba.');
     req.usuario = {
       uid: 'dev-user',
       email: 'dev@synapse.edu',

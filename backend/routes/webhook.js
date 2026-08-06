@@ -6,6 +6,7 @@
 
 const express = require('express');
 const router = express.Router();
+const twilio = require('twilio'); // FIX #2 — Validación firma HMAC de Twilio
 const { procesarMensajeTutor } = require('../agents/tutorSocratico');
 const { generarQuizAdaptativo } = require('../agents/quizGenerator');
 const { procesarAudioDuda } = require('../agents/audioProcessor');
@@ -20,15 +21,56 @@ const { obtenerPerfil, procesarComandoPerfil, mensajeBienvenida, actualizarPerfi
 // ─────────────────────────────────────────────
 const COLLECTION_HISTORIAL_WA = 'historial_whatsapp';
 const MAX_HISTORIAL = 20;
+// FIX #7 — Caché con TTL para evitar fuga de memoria (OOM en producción)
 const cachHistorial = new Map();
+
+/**
+ * Guarda en caché asociando una fecha de expiración (1 hora de inactividad).
+ */
+function guardarEnCache(remitente, mensajes) {
+  cachHistorial.set(remitente, {
+    mensajes,
+    expira: Date.now() + 60 * 60 * 1000 // 1 hora
+  });
+}
+
+/**
+ * Limpieza automática de caché cada 15 minutos.
+ * Elimina entradas de usuarios inactivos para liberar memoria Heap.
+ */
+setInterval(() => {
+  const ahora = Date.now();
+  for (const [remitente, data] of cachHistorial.entries()) {
+    if (ahora > data.expira) {
+      cachHistorial.delete(remitente);
+    }
+  }
+}, 15 * 60 * 1000);
+
+/**
+ * FIX #2 — Valida que el request viene realmente de Twilio usando firma HMAC.
+ * Documentación: https://www.twilio.com/docs/usage/webhooks/webhooks-security
+ */
+function validarFirmaTwilio(req) {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  // En desarrollo (sin token configurado) se omite la validación
+  if (!authToken || process.env.NODE_ENV !== 'production') return true;
+
+  const signature = req.headers['x-twilio-signature'] || '';
+  // La URL debe ser la URL pública completa del webhook
+  const url = `${process.env.BASE_URL || 'https://TU-DOMINIO.com'}/api/webhook/whatsapp`;
+  return twilio.validateRequest(authToken, signature, url, req.body);
+}
 
 /**
  * Obtiene el historial de conversación de un usuario.
  * Primero consulta el caché local; si no existe, lo carga desde Firestore.
  */
 async function obtenerHistorial(remitente) {
-  if (cachHistorial.has(remitente)) {
-    return cachHistorial.get(remitente);
+  // FIX #7 — Usar el objeto con TTL en lugar del array directo
+  const entrada = cachHistorial.get(remitente);
+  if (entrada && Date.now() < entrada.expira) {
+    return entrada.mensajes;
   }
 
   const db = getDb();
@@ -38,7 +80,7 @@ async function obtenerHistorial(remitente) {
       const doc = await db.collection(COLLECTION_HISTORIAL_WA).doc(docId).get();
       if (doc.exists) {
         const historial = doc.data().mensajes || [];
-        cachHistorial.set(remitente, historial);
+        guardarEnCache(remitente, historial); // FIX #7 — Usar helper con TTL
         return historial;
       }
     } catch (err) {
@@ -46,8 +88,8 @@ async function obtenerHistorial(remitente) {
     }
   }
 
-  cachHistorial.set(remitente, []);
-  return cachHistorial.get(remitente);
+  guardarEnCache(remitente, []); // FIX #7 — Usar helper con TTL
+  return cachHistorial.get(remitente).mensajes;
 }
 
 /**
@@ -60,6 +102,9 @@ async function agregarAlHistorial(remitente, role, text) {
   if (historial.length > MAX_HISTORIAL) {
     historial.splice(0, historial.length - MAX_HISTORIAL);
   }
+
+  // FIX #7 — Actualizar TTL al guardar nuevo mensaje
+  guardarEnCache(remitente, historial);
 
   const db = getDb();
   if (db) {
@@ -111,6 +156,12 @@ function respuestaTwiML(mensaje) {
  */
 router.post('/whatsapp', async (req, res) => {
   try {
+    // FIX #2 — Verificar que el mensaje viene de Twilio
+    if (!validarFirmaTwilio(req)) {
+      console.warn('⛔ Webhook rechazado: firma Twilio inválida');
+      return res.status(403).send('Forbidden');
+    }
+
     // ── Extraer datos del mensaje de Twilio ──
     const mensajeTexto = req.body.Body || '';
     const remitente = req.body.From || 'whatsapp:+0000000000';
@@ -119,7 +170,12 @@ router.post('/whatsapp', async (req, res) => {
     const mediaUrl = req.body.MediaUrl0 || '';
     const nombrePerfil = req.body.ProfileName || 'Estudiante';
 
-    console.log(`📱 WhatsApp de [${nombrePerfil}] (${remitente}): "${mensajeTexto}" | Media: ${numMedia}`);
+    // FIX #3 — Enmascarar número de teléfono por privacidad (GDPR/LGPD)
+    const numeroMascarado = remitente.replace(/(\+?\d+)(\d{4})/, (_, inicio, fin) =>
+      '*'.repeat(inicio.length) + fin
+    );
+    // NO loggear el contenido del mensaje (privacidad del usuario)
+    console.log(`📱 WhatsApp de [${nombrePerfil}] (${numeroMascarado}) | Media: ${numMedia}`);
 
     // ── Cargar perfil persistente del estudiante desde Firestore ──
     const perfil = await obtenerPerfil(remitente, nombrePerfil);
@@ -227,7 +283,7 @@ router.post('/whatsapp', async (req, res) => {
 
       } else if (textoLower === 'reiniciar' || textoLower === 'reset' || textoLower === 'nuevo tema') {
         // Limpiar historial en caché y en Firestore
-        cachHistorial.delete(remitente);
+        cachHistorial.delete(remitente); // FIX #7 — eliminar entrada con TTL
         const db = getDb();
         if (db) {
           const docId = remitente.replace(/[^a-zA-Z0-9]/g, '_');

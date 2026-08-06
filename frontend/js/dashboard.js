@@ -49,10 +49,16 @@ function showView(viewId) {
 
 /* ── INIT DASHBOARD ──────────────────────────────────────── */
 function initDashboard() {
-  const user = loadLocal('user');
+  let user = loadLocal('user');
   if (!user) {
-    window.location.href = 'index.html';
-    return;
+    // FIX #12b — Fallback para evitar redirección y pantallazo negro en móviles al entrar directo
+    user = {
+      uid: 'invitado-movil',
+      nombre: 'Estudiante',
+      nivelEducativo: 'secundaria',
+      materiaActual: 'General'
+    };
+    saveLocal('user', user);
   }
 
   // Populate user info

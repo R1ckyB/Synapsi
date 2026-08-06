@@ -20,10 +20,31 @@ function showToast(msg, type = 'info', duration = 3500) {
 }
 
 /* ── API HELPER ──────────────────────────────────────────── */
+
+/**
+ * FIX #10 — Obtiene siempre un ID Token válido antes de enviar peticiones a la API.
+ * getIdToken(false) renueva el token automáticamente si ya expiró (caduca c/60 min).
+ * Esto evita que el chat deje de responder después de una hora de uso.
+ */
+async function obtenerAuthHeader() {
+  if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+    try {
+      const token = await firebase.auth().currentUser.getIdToken(/* forceRefresh */ false);
+      return { 'Authorization': `Bearer ${token}` };
+    } catch (e) {
+      console.warn('[Synapse] No se pudo renovar token de Firebase:', e.message);
+    }
+  }
+  // Fallback: usar token guardado en localStorage si Firebase no está disponible
+  const tokenLocal = loadLocal('token');
+  if (tokenLocal) return { 'Authorization': `Bearer ${tokenLocal}` };
+  return {};
+}
 async function apiPost(endpoint, body, options = {}) {
+  const authHeader = await obtenerAuthHeader(); // FIX #10 — Token siempre fresco
   const res = await fetch(`${SYNAPSE_CONFIG.API_BASE}${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeader, ...options.headers },
     body: JSON.stringify(body),
     ...options
   });
@@ -33,7 +54,10 @@ async function apiPost(endpoint, body, options = {}) {
 }
 
 async function apiGet(endpoint) {
-  const res = await fetch(`${SYNAPSE_CONFIG.API_BASE}${endpoint}`);
+  const authHeader = await obtenerAuthHeader(); // FIX #10 — Token siempre fresco
+  const res = await fetch(`${SYNAPSE_CONFIG.API_BASE}${endpoint}`, {
+    headers: { ...authHeader }
+  });
   const data = await res.json();
   if (!res.ok) throw new Error(data.mensaje || `Error ${res.status}`);
   return data;

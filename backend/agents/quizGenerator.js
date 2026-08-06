@@ -8,6 +8,24 @@ const { chatJSON } = require('../config/gemini');
 const { obtenerVaciosEstudiante } = require('./vaciosService');
 
 /**
+ * FIX #9 — Parseo seguro de JSON devuelto por Gemini.
+ * Gemini en ocasiones envuelve la respuesta en bloques de markdown (```json).
+ * Sin sanitización, JSON.parse() lanza SyntaxError → HTTP 500 al usuario.
+ */
+function parsearJSONSeguro(textoRaw) {
+  try {
+    const textoLimpio = textoRaw
+      .replace(/```json/gi, '')
+      .replace(/```/gi, '')
+      .trim();
+    return JSON.parse(textoLimpio);
+  } catch (err) {
+    require('../utils/logger').error('Error parseando JSON de Gemini:', { textoRaw: textoRaw.slice(0, 200), err: err.message });
+    throw new Error('La IA generó una respuesta con formato inválido. Reintentando...');
+  }
+}
+
+/**
  * Genera un quiz adaptativo en formato JSON determinístico.
  * Puede enfocarse en los vacíos de conocimiento detectados del estudiante.
  *
@@ -60,8 +78,13 @@ DEBES DEVOLVER ÚNICAMENTE UN OBJETO JSON CON LA SIGUIENTE ESTRUCTURA ESTRICTA:
 
   const userMessage = `Genera el quiz de ${numPreguntas} preguntas para "${tema}" con dificultad progresiva desde ${dificultad}.`;
 
-  const quizJSON = await chatJSON(systemPrompt, userMessage);
-  return quizJSON;
+  // FIX #9 — Usar parsearJSONSeguro en lugar de confiar en el raw output
+  const textoRaw = await chatJSON(systemPrompt, userMessage, { raw: true }).catch(() => null);
+  if (textoRaw && typeof textoRaw === 'string') {
+    return parsearJSONSeguro(textoRaw);
+  }
+  // Si chatJSON ya retorna el objeto parseado, devolverlo directamente
+  return textoRaw || await chatJSON(systemPrompt, userMessage);
 }
 
 /**

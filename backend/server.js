@@ -21,9 +21,28 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ── Middlewares globales ──
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// FIX #1 — CORS restringido (no abierto a cualquier origen)
+const origenesPermitidos = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  // 'https://TU-DOMINIO.com',  ← descomenta y pon tu dominio real de producción
+];
+app.use(cors({
+  origin: function (origin, callback) {
+    // Permite requests sin origin (Postman, apps móviles, curl, servidor mismo)
+    if (!origin) return callback(null, true);
+    if (origenesPermitidos.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS bloqueado: origen no permitido → ${origin}`));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// FIX #5 — Límite global pequeño para endpoints de texto (protección DoS)
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // Servir estáticos del frontend si existen
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
@@ -41,15 +60,17 @@ const profesoresRouter = require('./routes/profesores');
 const webhookRouter  = require('./routes/webhook');
 
 // Rutas públicas (sin auth)
-app.use('/api/auth',    limiterAuth, authRouter);
-app.use('/api/webhook', webhookRouter);
+app.use('/api/auth',    express.json({ limit: '50kb' }),  limiterAuth, authRouter);
+app.use('/api/webhook', express.urlencoded({ extended: true, limit: '50kb' }), webhookRouter);
 
 // Rutas protegidas (Firebase ID Token + rate limiting + validación de input)
-app.use('/api/tutoria',    limiterIA,       verificarToken,    validarMensajeTutoria, tutoriaRouter);
-app.use('/api/quizzes',    limiterQuiz,     verificarToken,    validarGenerarQuiz,    quizzesRouter);
-app.use('/api/audio',      limiterIA,       verificarToken,    audioRouter);
-app.use('/api/imagen',     limiterIA,       verificarToken,    imagenRouter);
-app.use('/api/profesores', limiterProfesor, verificarProfesor, profesoresRouter);
+// FIX #5 — Las rutas de audio/imagen mantienen límite alto (base64 de archivos)
+app.use('/api/audio',      express.json({ limit: '10mb' }),  limiterIA, verificarToken, audioRouter);
+app.use('/api/imagen',     express.json({ limit: '10mb' }),  limiterIA, verificarToken, imagenRouter);
+// El resto con límite estricto de texto
+app.use('/api/tutoria',    express.json({ limit: '50kb' }),  limiterIA,       verificarToken,    validarMensajeTutoria, tutoriaRouter);
+app.use('/api/quizzes',    express.json({ limit: '50kb' }),  limiterQuiz,     verificarToken,    validarGenerarQuiz,    quizzesRouter);
+app.use('/api/profesores', express.json({ limit: '50kb' }),  limiterProfesor, verificarProfesor, profesoresRouter);
 
 // Endpoint de verificación de salud
 app.get('/api/health', (req, res) => {

@@ -136,12 +136,12 @@ async function testRateLimiter() {
     let rechazado = false;
 
     for (let i = 0; i < 3; i++) {
-      const req = { ip, headers: {} };
+      const req = { ip, path: '/test', headers: {} };
       const res = {
         setHeader: () => {},
         status: (code) => ({ json: () => { rechazado = true; } })
       };
-      limiter(req, res, () => {});
+      await limiter(req, res, () => {});
     }
 
     assert.strictEqual(rechazado, false, 'No debería rechazar dentro del límite');
@@ -154,7 +154,7 @@ async function testRateLimiter() {
     let codigoHTTP = 0;
 
     for (let i = 0; i < 3; i++) {
-      const req = { ip, headers: {} };
+      const req = { ip, path: '/test', headers: {} };
       const res = {
         setHeader: () => {},
         status: (code) => {
@@ -162,7 +162,7 @@ async function testRateLimiter() {
           return { json: () => { rechazado = true; } };
         }
       };
-      limiter(req, res, () => {});
+      await limiter(req, res, () => {});
     }
 
     assert.strictEqual(rechazado, true, 'Debería rechazar la petición extra');

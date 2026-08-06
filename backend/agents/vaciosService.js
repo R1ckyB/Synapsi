@@ -5,6 +5,7 @@
 // ============================================
 
 const { getDb } = require('../config/firebase');
+const admin = require('firebase-admin'); // FIX #8 — Para FieldValue.increment y arrayUnion
 
 const COLLECTION_VACIOS = 'vacios_conocimiento';
 const COLLECTION_SESIONES = 'sesiones_tutoria';
@@ -28,36 +29,21 @@ async function registrarVacio(concepto, estudianteId = 'anonimo', materia = 'Gen
 
   const vacioId = `${grupoId}_${concepto.toLowerCase().replace(/\s+/g, '_')}`;
   const vacioRef = db.collection(COLLECTION_VACIOS).doc(vacioId);
-  const vacioDoc = await vacioRef.get();
 
-  if (vacioDoc.exists) {
-    // Incrementar contador y agregar estudiante si no está ya
-    const data = vacioDoc.data();
-    const estudiantesSet = new Set(data.estudiantesAfectados || []);
-    estudiantesSet.add(estudianteId);
+  // FIX #8 — Operación atómica: elimina la race condition de get() + update() manual.
+  // FieldValue.increment y arrayUnion garantizan consistencia aunque múltiples
+  // instancias escriban al mismo tiempo (ej: clase en vivo con muchos estudiantes).
+  await vacioRef.set({
+    concepto,
+    materia,
+    grupoId,
+    consultasTotales: admin.firestore.FieldValue.increment(1),
+    consultasSemana:  admin.firestore.FieldValue.increment(1),
+    estudiantesAfectados: admin.firestore.FieldValue.arrayUnion(estudianteId),
+    ultimaDeteccion: new Date().toISOString()
+  }, { merge: true });
 
-    await vacioRef.update({
-      consultasTotales: (data.consultasTotales || 0) + 1,
-      consultasSemana: (data.consultasSemana || 0) + 1,
-      estudiantesAfectados: Array.from(estudiantesSet),
-      ultimaDeteccion: new Date().toISOString()
-    });
-  } else {
-    // Crear nuevo registro de vacío
-    await vacioRef.set({
-      concepto,
-      materia,
-      grupoId,
-      consultasTotales: 1,
-      consultasSemana: 1,
-      estudiantesAfectados: [estudianteId],
-      porcentajeDificultad: 0, // Se calcula al consultar
-      primeraDeteccion: new Date().toISOString(),
-      ultimaDeteccion: new Date().toISOString()
-    });
-  }
-
-  console.log(`📊 Vacío registrado: "${concepto}" | Estudiante: ${estudianteId} | Grupo: ${grupoId}`);
+  console.log(`📊 Vacío atómico registrado: "${concepto}" | Estudiante: ${estudianteId} | Grupo: ${grupoId}`);
   return { registrado: true, concepto, vacioId };
 }
 

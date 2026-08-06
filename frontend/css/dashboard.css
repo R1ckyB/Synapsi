@@ -607,3 +607,30 @@
 .empty-state-icon { font-size: 3.5rem; margin-bottom: var(--sp-md); opacity: 0.5; }
 .empty-state-title { font-size: 1rem; font-weight:700; margin-bottom: var(--sp-sm); color: var(--clr-text); }
 .empty-state-text  { font-size: 0.85rem; }
+
+/* ══════════════════════════════════════════════════════════
+   FIX #12 — PARCHE RESPONSIVO PARA PANTALLAS EN MÓVIL
+══════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  body {
+    background-color: #080b14 !important;
+  }
+  .app-shell {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+  }
+  .main-content {
+    flex: 1 !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  /* La vista activa siempre debe ser visible y ocupar el 100% del contenedor */
+  .view.active {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    height: 100% !important;
+  }
+}

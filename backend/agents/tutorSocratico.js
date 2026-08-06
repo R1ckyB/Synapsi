@@ -90,6 +90,13 @@ Si detectas que el estudiante DOMINA el tema o pide evaluarse, añade AL FINAL d
 
 Si detectas un vacío GRAVE y recurrente de conocimiento en un concepto, añade AL FINAL:
 [VACIO_DETECTADO|concepto:NombreExactoDelConcepto]
+
+═══════════════════════════════════════════
+IDIOMA (i18n — XPRIZE Internacional)
+═══════════════════════════════════════════
+
+- IDIOMA: Detecta automáticamente el idioma en el que escribe el estudiante (Español, Inglés, Portugués, Francés, etc.) y responde SIEMPRE en el mismo idioma, manteniendo la misma pedagogía socrática y el método de preguntas guía.
+- Si el estudiante mezcla idiomas, usa el idioma predominante de su último mensaje.
 `.trim();
 }
 
