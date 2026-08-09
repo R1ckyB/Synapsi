@@ -113,13 +113,21 @@ async function handleLogin(event) {
       return;
     }
   } catch (err) {
-    if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-      showToast('Contraseña incorrecta', 'error');
-      btn.disabled = false;
-      txt.textContent = 'Iniciar sesión';
-      spn.classList.add('hidden');
-      return;
-    }
+    console.error('Login error:', err);
+    const errorMessages = {
+      'auth/wrong-password': 'Contraseña incorrecta',
+      'auth/invalid-credential': 'Credenciales inválidas',
+      'auth/user-not-found': 'Usuario no encontrado. Revisa tu correo o créate una cuenta.',
+      'auth/invalid-email': 'Correo electrónico inválido.',
+      'auth/user-disabled': 'Esta cuenta ha sido deshabilitada.',
+      'auth/too-many-requests': 'Demasiados intentos fallidos. Intenta más tarde.'
+    };
+    const msg = errorMessages[err.code] || err.message || 'Error al iniciar sesión';
+    showToast(msg, 'error');
+    btn.disabled = false;
+    txt.textContent = 'Iniciar sesión';
+    spn.classList.add('hidden');
+    return;
   }
   handleDemoLogin(email);
 }
@@ -318,6 +326,7 @@ if (typeof auth !== 'undefined') {
 function handleLogout() {
   clearLocal('user');
   clearLocal('token');
+  clearLocal('idToken');
   clearLocal('historial');
   if (typeof auth !== 'undefined') {
     auth.signOut().catch(() => {});
@@ -329,8 +338,11 @@ function handleLogout() {
 (function authGuard() {
   if (!document.getElementById('form-login')) return;
   const user = loadLocal('user');
-  if (user && user.uid) {
+  const token = loadLocal('token') || loadLocal('idToken');
+  if (user && user.uid && token) {
     window.location.href = user.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
+  } else if (user && !token) {
+    clearLocal('user');
   }
 })();
 

@@ -65,8 +65,17 @@ const DEMO_ALUMNOS = [
 
 /* ── INIT ────────────────────────────────────────────────── */
 function initProfesor() {
-  const user = loadLocal('user');
-  if (!user) { window.location.href = 'index.html'; return; }
+  let user = loadLocal('user');
+  let token = loadLocal('token') || loadLocal('idToken');
+  if (!user) {
+    user = { uid: 'prof-demo', nombre: 'Profesor Demo', rol: 'profesor' };
+    saveLocal('user', user);
+  }
+  if (!token) {
+    token = 'demo-token';
+    saveLocal('token', token);
+    saveLocal('idToken', token);
+  }
 
   window.SynapseState.user = user;
   const initials = getInitials(user.nombre || 'P');

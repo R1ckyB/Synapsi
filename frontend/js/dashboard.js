@@ -52,16 +52,21 @@ function showView(viewId) {
 /* ── INIT DASHBOARD ──────────────────────────────────────── */
 function initDashboard() {
   let user = loadLocal('user');
-  
-  // FIX #12 — Si no hay usuario guardado (ej. al abrir directo en el celular), crea sesión invitada
-  if (!user) {
-    user = {
-      uid: 'invitado-movil',
+  let token = loadLocal('token') || loadLocal('idToken');
+
+  // Si no hay usuario o token guardado, crear sesión de invitado válida
+  if (!user || !token) {
+    user = user || {
+      uid: 'demo-user-' + Date.now(),
       nombre: 'Estudiante',
       nivelEducativo: 'secundaria',
-      materiaActual: 'General'
+      materiaActual: 'General',
+      racha: 3
     };
+    token = 'demo-token';
     saveLocal('user', user);
+    saveLocal('token', token);
+    saveLocal('idToken', token);
   }
 
   // Populate user info
