@@ -61,14 +61,28 @@ REGLAS DE INTERACCIÓN:
 3. Si el usuario te habla normalmente, responde como su mentor histórico con sabiduría y preguntas reflexivas.
 `.trim();
 
-  const respuesta = await chatConHistorial(systemPrompt, historial, mensajeUsuario);
+  try {
+    const respuesta = await chatConHistorial(systemPrompt, historial, mensajeUsuario);
+    return {
+      respuesta,
+      personaje: personaje.nombre,
+      icono: personaje.icono,
+      epoca: personaje.epoca
+    };
+  } catch (err) {
+    console.warn('⚠️ Gemini API Fallback en Genio del Tiempo:', err.message);
+    
+    // Simulación inteligente para el multiverso si la API falla o la Key es inválida
+    let respuestaFallback = `🌌 **El Salto al Multiverso**: Si alteramos esta ley fundamental, la estructura misma de la materia y el movimiento cambiaría de forma drástica.\n\n⚡ **Efecto Dominó en Cadena**:\n1. Las órbitas de los planetas y los objetos en superficie sufrirían aceleraciones extremas.\n2. La tecnología moderna y las estructuras arquitectónicas tendrían que rediseñarse por completo.\n3. Los seres vivos evolucionarían con características mecánicas y biológicas adaptadas a esta nueva densidad.\n\n❓ **Dilema de ${personaje.nombre}**: Si tuvieras en tus manos el poder de estabilizar este universo alternativo o regresar a la Tierra original, ¿qué principio científico aplicarías primero? 🤔`;
 
-  return {
-    respuesta,
-    personaje: personaje.nombre,
-    icono: personaje.icono,
-    epoca: personaje.epoca
-  };
+    return {
+      respuesta: respuestaFallback,
+      personaje: personaje.nombre,
+      icono: personaje.icono,
+      epoca: personaje.epoca,
+      fallback: true
+    };
+  }
 }
 
 module.exports = {

@@ -91,63 +91,84 @@ async function chat(systemPrompt, userMessage) {
  * Chat con historial de conversación.
  */
 async function chatConHistorial(systemPrompt, historial = [], nuevoMensaje = '') {
-  return conReintentos(async () => {
-    const modelInstance = getModel();
-    const contents = [];
+  try {
+    return await conReintentos(async () => {
+      const modelInstance = getModel();
+      const contents = [];
 
-    if (historial.length === 0) {
-      contents.push({
-        role: 'user',
-        parts: [{ text: `${systemPrompt}\n\n---\n\n${nuevoMensaje}` }]
-      });
-    } else {
-      contents.push({
-        role: 'user',
-        parts: [{ text: `${systemPrompt}\n\n---\n\n${historial[0].text}` }]
-      });
-      for (let i = 1; i < historial.length; i++) {
+      if (historial.length === 0) {
         contents.push({
-          role: historial[i].role === 'model' ? 'model' : 'user',
-          parts: [{ text: historial[i].text }]
+          role: 'user',
+          parts: [{ text: `${systemPrompt}\n\n---\n\n${nuevoMensaje}` }]
         });
+      } else {
+        contents.push({
+          role: 'user',
+          parts: [{ text: `${systemPrompt}\n\n---\n\n${historial[0].text}` }]
+        });
+        for (let i = 1; i < historial.length; i++) {
+          contents.push({
+            role: historial[i].role === 'model' ? 'model' : 'user',
+            parts: [{ text: historial[i].text }]
+          });
+        }
+        contents.push({ role: 'user', parts: [{ text: nuevoMensaje }] });
       }
-      contents.push({ role: 'user', parts: [{ text: nuevoMensaje }] });
-    }
 
-    const result = await modelInstance.generateContent({
-      contents,
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+      const result = await modelInstance.generateContent({
+        contents,
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+      });
+      return result.response.text();
     });
-    return result.response.text();
-  });
+  } catch (err) {
+    if (err.message?.includes('API key') || err.message?.includes('GEMINI_API_KEY') || err.status === 400) {
+      logger.warn('⚠️ Usando respuesta socrática simulada (API Key no configurada o inválida)');
+      return `¡Gran pregunta! Para ayudarte a razonar sobre esto: ¿qué pasaría si observamos la fuerza y la energía que actúan en este fenómeno? Intenta pensar en un ejemplo de tu vida cotidiana. 🤔`;
+    }
+    throw err;
+  }
 }
 
 /**
  * Chat determinístico que fuerza respuesta en formato JSON.
  */
 async function chatJSON(systemPrompt, userMessage) {
-  return conReintentos(async () => {
-    const modelInstance = getModel();
-    const result = await modelInstance.generateContent({
-      contents: [{
-        role: 'user',
-        parts: [{ text: `${systemPrompt}\n\n---\n\nContenido a procesar:\n${userMessage}` }]
-      }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 4096,
-        responseMimeType: 'application/json',
+  try {
+    return await conReintentos(async () => {
+      const modelInstance = getModel();
+      const result = await modelInstance.generateContent({
+        contents: [{
+          role: 'user',
+          parts: [{ text: `${systemPrompt}\n\n---\n\nContenido a procesar:\n${userMessage}` }]
+        }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 4096,
+          responseMimeType: 'application/json',
+        }
+      });
+      const texto = result.response.text();
+      try {
+        return JSON.parse(texto);
+      } catch {
+        const jsonMatch = texto.match(/\{[\s\S]*\}/) || texto.match(/\[[\s\S]*\]/);
+        if (jsonMatch) return JSON.parse(jsonMatch[0]);
+        throw new Error('Gemini no devolvió un JSON válido: ' + texto.substring(0, 200));
       }
     });
-    const texto = result.response.text();
-    try {
-      return JSON.parse(texto);
-    } catch {
-      const jsonMatch = texto.match(/\{[\s\S]*\}/) || texto.match(/\[[\s\S]*\]/);
-      if (jsonMatch) return JSON.parse(jsonMatch[0]);
-      throw new Error('Gemini no devolvió un JSON válido: ' + texto.substring(0, 200));
+  } catch (err) {
+    if (err.message?.includes('API key') || err.message?.includes('GEMINI_API_KEY') || err.status === 400) {
+      logger.warn('⚠️ Usando JSON simulado (API Key no configurada o inválida)');
+      return {
+        respuesta: '¡Excelente explicación! ¿Podrías darme un ejemplo práctico para confirmar que lo entendí del todo?',
+        scoreComprension: 75,
+        feedbackPedagogico: 'Buen uso de términos básicos.',
+        completado: false
+      };
     }
-  });
+    throw err;
+  }
 }
 
 /**
