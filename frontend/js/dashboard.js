@@ -10,6 +10,8 @@ const VIEW_META = {
   imagen:   { title: 'Analizar Imagen',   breadcrumb: 'Sube fotos de tu cuaderno' },
   progreso: { title: 'Mi Progreso',       breadcrumb: 'Estadísticas y avances' },
   materias: { title: 'Mis Materias',      breadcrumb: 'Gestiona tus cursos' },
+  feynman:  { title: 'Modo Enseñar',      breadcrumb: 'Técnica Feynman · El alumno enseña a la IA' },
+  genio:    { title: 'Genio del Tiempo',  breadcrumb: 'Mentores Históricos y Multiverso WHAT IF?' },
 };
 
 function showView(viewId) {

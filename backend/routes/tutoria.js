@@ -78,4 +78,64 @@ router.post('/mensaje', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/tutoria/feynman
+ * Modo Profesor Invertido: El estudiante enseña un tema a la IA.
+ * Body: { tema, explicacionUsuario, historial }
+ */
+router.post('/feynman', async (req, res) => {
+  try {
+    const { procesarExplicacionFeynman } = require('../agents/feynmanAgent');
+    const { tema = 'General', explicacionUsuario, historial = [] } = req.body;
+
+    if (!explicacionUsuario) {
+      return res.status(400).json({ error: true, mensaje: 'Debes escribir tu explicación.' });
+    }
+
+    const resultado = await procesarExplicacionFeynman(tema, explicacionUsuario, historial);
+
+    res.json({
+      exito: true,
+      respuesta: resultado.respuesta,
+      scoreComprension: resultado.scoreComprension,
+      feedbackPedagogico: resultado.feedbackPedagogico,
+      completado: resultado.completado,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error en Modo Feynman:', error);
+    res.status(500).json({ error: true, mensaje: error.message });
+  }
+});
+
+/**
+ * POST /api/tutoria/genio-tiempo
+ * Genio del Tiempo / Simulador Multiverso "What If?" con Genios Históricos.
+ * Body: { personajeId, mensaje, historial }
+ */
+router.post('/genio-tiempo', async (req, res) => {
+  try {
+    const { procesarGenioTiempo } = require('../agents/genioTiempoAgent');
+    const { personajeId = 'einstein', mensaje, historial = [] } = req.body;
+
+    if (!mensaje) {
+      return res.status(400).json({ error: true, mensaje: 'El mensaje no puede estar vacío.' });
+    }
+
+    const resultado = await procesarGenioTiempo(personajeId, mensaje, historial);
+
+    res.json({
+      exito: true,
+      respuesta: resultado.respuesta,
+      personaje: resultado.personaje,
+      icono: resultado.icono,
+      epoca: resultado.epoca,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error en Genio del Tiempo:', error);
+    res.status(500).json({ error: true, mensaje: error.message });
+  }
+});
+
 module.exports = router;
