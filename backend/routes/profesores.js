@@ -9,6 +9,8 @@ const { obtenerVaciosGrupo, obtenerVaciosEstudiante } = require('../agents/vacio
 const { getDb } = require('../config/firebase');
 const { verificarProfesor } = require('../middleware/authMiddleware');
 
+const { obtenerGrupoSeguro, exigirMiembroGrupo, exigirProfesorPropietario } = require('../middleware/grupos');
+
 /** Genera un código de grupo único de 6 caracteres alfanuméricos */
 function generarCodigo() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -29,30 +31,30 @@ router.post('/grupos', verificarProfesor, async (req, res) => {
     const { nombreGrupo = 'Mi Grupo' } = req.body;
 
     // Generar código único
-    let codigo;
+    let codigo = generarCodigo();
+    let existe = true;
     let intentos = 0;
-    do {
-      codigo = generarCodigo();
-      const exists = await db.collection('grupos').doc(codigo).get();
-      if (!exists.exists) break;
-      intentos++;
-    } while (intentos < 5);
 
-    const grupoData = {
-      codigo,
-      nombre: nombreGrupo,
-      profesorId,
-      alumnos: [],
-      creadoEn: new Date().toISOString()
-    };
+    if (db) {
+      while (existe && intentos < 10) {
+        const doc = await db.collection('grupos').doc(codigo).get();
+        if (!doc.exists) existe = false;
+        else { codigo = generarCodigo(); intentos++; }
+      }
 
-    await db.collection('grupos').doc(codigo).set(grupoData);
+      await db.collection('grupos').doc(codigo).set({
+        nombre: nombreGrupo,
+        profesorId,
+        alumnos: [],
+        creadoEn: new Date().toISOString()
+      });
 
-    // Asociar grupo al perfil del profesor
-    await db.collection('usuarios').doc(profesorId).set(
-      { grupos: require('firebase-admin').firestore.FieldValue.arrayUnion(codigo) },
-      { merge: true }
-    );
+      // Asociar grupo al perfil del profesor
+      await db.collection('usuarios').doc(profesorId).set(
+        { grupos: require('firebase-admin').firestore.FieldValue.arrayUnion(codigo) },
+        { merge: true }
+      );
+    }
 
     res.json({ exito: true, codigo, nombre: nombreGrupo });
   } catch (error) {
@@ -72,32 +74,22 @@ router.post('/grupos/unirse', async (req, res) => {
     const estudianteId = req.usuario?.uid;
     const { codigo } = req.body;
 
-    if (!codigo) return res.status(400).json({ error: true, mensaje: 'Código requerido' });
+    const grupo = await obtenerGrupoSeguro(codigo);
 
-    const grupoRef = db.collection('grupos').doc(codigo.toUpperCase().trim());
-    const grupoSnap = await grupoRef.get();
-
-    if (!grupoSnap.exists) {
-      return res.status(404).json({ error: true, mensaje: 'Código de grupo no encontrado' });
+    if (db) {
+      const grupoRef = db.collection('grupos').doc(codigo.toUpperCase().trim());
+      await grupoRef.update({
+        alumnos: require('firebase-admin').firestore.FieldValue.arrayUnion(estudianteId)
+      });
+      await db.collection('usuarios').doc(estudianteId).set(
+        { grupoId: codigo.toUpperCase().trim(), grupoNombre: grupo.nombre },
+        { merge: true }
+      );
     }
-
-    const grupo = grupoSnap.data();
-
-    // Agregar alumno al grupo (sin duplicados)
-    await grupoRef.update({
-      alumnos: require('firebase-admin').firestore.FieldValue.arrayUnion(estudianteId)
-    });
-
-    // Guardar grupoId en el perfil del estudiante
-    await db.collection('usuarios').doc(estudianteId).set(
-      { grupoId: codigo.toUpperCase().trim(), grupoNombre: grupo.nombre },
-      { merge: true }
-    );
 
     res.json({ exito: true, grupoNombre: grupo.nombre, grupoId: codigo.toUpperCase().trim() });
   } catch (error) {
-    console.error('❌ Error al unirse al grupo:', error);
-    res.status(500).json({ error: true, mensaje: error.message });
+    res.status(error.status || 500).json({ error: true, mensaje: error.message });
   }
 });
 
@@ -109,6 +101,8 @@ router.get('/grupos', verificarProfesor, async (req, res) => {
   try {
     const db = getDb();
     const profesorId = req.usuario?.uid;
+
+    if (!db) return res.json({ exito: true, grupos: [] });
 
     const snap = await db.collection('grupos')
       .where('profesorId', '==', profesorId)
@@ -128,18 +122,13 @@ router.get('/grupos', verificarProfesor, async (req, res) => {
  */
 router.get('/vacios', verificarProfesor, async (req, res) => {
   try {
-    const db = getDb();
-    const profesorId = req.usuario?.uid;
-    const grupoId = req.query.grupoId || 'general';
-    const totalEstudiantes = parseInt(req.query.totalEstudiantes) || 30;
-
-    if (db && grupoId !== 'general') {
-      const grupoDoc = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
-      if (!grupoDoc.exists) return res.status(404).json({ error: true, mensaje: 'Grupo no encontrado' });
-      if (grupoDoc.data().profesorId !== profesorId) {
-        return res.status(403).json({ error: true, mensaje: 'No tienes permisos sobre este grupo' });
-      }
+    const grupoId = req.query.grupoId;
+    if (!grupoId || (grupoId === 'general' && req.usuario?.rol !== 'admin')) {
+      return res.status(403).json({ error: true, mensaje: 'Selecciona un grupo propio para consultar vacíos.' });
     }
+
+    await exigirProfesorPropietario(req, grupoId);
+    const totalEstudiantes = parseInt(req.query.totalEstudiantes) || 30;
 
     const vacios = await obtenerVaciosGrupo(grupoId, totalEstudiantes);
 
@@ -152,8 +141,7 @@ router.get('/vacios', verificarProfesor, async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('❌ Error obteniendo vacíos:', error);
-    res.status(500).json({ error: true, mensaje: error.message });
+    res.status(error.status || 500).json({ error: true, mensaje: error.message });
   }
 });
 
@@ -234,25 +222,19 @@ router.patch('/perfil', verificarProfesor, async (req, res) => {
  */
 router.patch('/grupos/:codigo', verificarProfesor, async (req, res) => {
   try {
-    const db = getDb();
-    const profesorId = req.usuario?.uid;
     const { codigo } = req.params;
     const { nombre } = req.body;
-
     if (!nombre) return res.status(400).json({ error: true, mensaje: 'Nombre es requerido' });
 
+    await exigirProfesorPropietario(req, codigo);
+    const db = getDb();
+
     if (db) {
-      const docRef = db.collection('grupos').doc(codigo.toUpperCase().trim());
-      const docSnap = await docRef.get();
-      if (!docSnap.exists) return res.status(404).json({ error: true, mensaje: 'Grupo no encontrado' });
-      if (docSnap.data().profesorId !== profesorId) {
-        return res.status(403).json({ error: true, mensaje: 'No tienes permisos sobre este grupo' });
-      }
-      await docRef.update({ nombre });
+      await db.collection('grupos').doc(codigo.toUpperCase().trim()).update({ nombre });
     }
     res.json({ exito: true, codigo: codigo.toUpperCase(), nombre });
   } catch (error) {
-    res.status(500).json({ error: true, mensaje: error.message });
+    res.status(error.status || 500).json({ error: true, mensaje: error.message });
   }
 });
 
@@ -262,19 +244,13 @@ router.patch('/grupos/:codigo', verificarProfesor, async (req, res) => {
  */
 router.delete('/grupos/:codigo/alumnos/:uid', verificarProfesor, async (req, res) => {
   try {
-    const db = getDb();
-    const profesorId = req.usuario?.uid;
     const { codigo, uid } = req.params;
+    await exigirProfesorPropietario(req, codigo);
+    const db = getDb();
 
     if (db) {
-      const docRef = db.collection('grupos').doc(codigo.toUpperCase().trim());
-      const docSnap = await docRef.get();
-      if (!docSnap.exists) return res.status(404).json({ error: true, mensaje: 'Grupo no encontrado' });
-      if (docSnap.data().profesorId !== profesorId) {
-        return res.status(403).json({ error: true, mensaje: 'No tienes permisos sobre este grupo' });
-      }
       const admin = require('firebase-admin');
-      await docRef.update({
+      await db.collection('grupos').doc(codigo.toUpperCase().trim()).update({
         alumnos: admin.firestore.FieldValue.arrayRemove(uid)
       });
       await db.collection('usuarios').doc(uid).set(
@@ -284,7 +260,7 @@ router.delete('/grupos/:codigo/alumnos/:uid', verificarProfesor, async (req, res
     }
     res.json({ exito: true, mensaje: 'Alumno eliminado del grupo' });
   } catch (error) {
-    res.status(500).json({ error: true, mensaje: error.message });
+    res.status(error.status || 500).json({ error: true, mensaje: error.message });
   }
 });
 
@@ -295,13 +271,14 @@ router.delete('/grupos/:codigo/alumnos/:uid', verificarProfesor, async (req, res
  */
 router.post('/anuncios', verificarProfesor, async (req, res) => {
   try {
-    const db = getDb();
-    const profesorId = req.usuario?.uid;
     const { grupoId, titulo, contenido } = req.body;
-
     if (!grupoId || !contenido) {
       return res.status(400).json({ error: true, mensaje: 'grupoId y contenido son requeridos' });
     }
+
+    await exigirProfesorPropietario(req, grupoId);
+    const db = getDb();
+    const profesorId = req.usuario?.uid;
 
     const anuncio = {
       grupoId: grupoId.toUpperCase().trim(),
@@ -312,11 +289,6 @@ router.post('/anuncios', verificarProfesor, async (req, res) => {
     };
 
     if (db) {
-      const docSnap = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
-      if (!docSnap.exists) return res.status(404).json({ error: true, mensaje: 'Grupo no encontrado' });
-      if (docSnap.data().profesorId !== profesorId) {
-        return res.status(403).json({ error: true, mensaje: 'No tienes permisos sobre este grupo' });
-      }
       const docRef = await db.collection('anuncios').add(anuncio);
       anuncio.id = docRef.id;
     } else {
@@ -325,7 +297,7 @@ router.post('/anuncios', verificarProfesor, async (req, res) => {
 
     res.json({ exito: true, anuncio });
   } catch (error) {
-    res.status(500).json({ error: true, mensaje: error.message });
+    res.status(error.status || 500).json({ error: true, mensaje: error.message });
   }
 });
 
@@ -335,24 +307,10 @@ router.post('/anuncios', verificarProfesor, async (req, res) => {
  */
 router.get('/anuncios/:grupoId', async (req, res) => {
   try {
-    const db = getDb();
     const { grupoId } = req.params;
-    const uid = req.usuario?.uid;
-    const rol = req.usuario?.rol;
+    await exigirMiembroGrupo(req, grupoId);
 
-    if (!db) return res.json({ exito: true, anuncios: [] });
-
-    // Validar pertenencia del usuario al grupo
-    const grupoDoc = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
-    if (grupoDoc.exists) {
-      const data = grupoDoc.data();
-      const esProfesor = data.profesorId === uid;
-      const esAlumno = (data.alumnos || []).includes(uid);
-      if (!esProfesor && !esAlumno && rol !== 'admin') {
-        return res.status(403).json({ error: true, mensaje: 'No perteneces a este grupo para ver sus anuncios.' });
-      }
-    }
-
+    const db = getDb();
     const snap = await db.collection('anuncios')
       .where('grupoId', '==', grupoId.toUpperCase().trim())
       .orderBy('creadoEn', 'desc')
@@ -362,7 +320,7 @@ router.get('/anuncios/:grupoId', async (req, res) => {
     const anuncios = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     res.json({ exito: true, anuncios });
   } catch (error) {
-    res.status(500).json({ error: true, mensaje: error.message });
+    res.status(error.status || 500).json({ error: true, mensaje: error.message });
   }
 });
 

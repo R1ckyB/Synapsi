@@ -122,11 +122,12 @@ async function cargarDatosPerfil(user) {
     // Mensaje de bienvenida
     const savedHistorial = loadLocal('historial');
     if (!savedHistorial?.length) {
-      const welcomeMsg = document.querySelector('#welcome-msg .msg-bubble');
+      const nombreEscaped = escapeHtml(user.nombre?.split(' ')[0] || 'Estudiante');
+      const materiaEscaped = escapeHtml(user.materiaActual || 'tus materias');
       if (welcomeMsg) {
-        welcomeMsg.innerHTML = `¡Hola <strong>${user.nombre?.split(' ')[0] || 'Estudiante'}</strong>! Soy <strong>Synapse</strong>, tu tutor personal con IA 🎓<br><br>
+        welcomeMsg.innerHTML = `¡Hola <strong>${nombreEscaped}</strong>! Soy <strong>Synapse</strong>, tu tutor personal con IA 🎓<br><br>
         Estoy aquí para ayudarte a aprender usando el método socrático: te guiaré con preguntas para que llegues a las respuestas tú mismo.<br><br>
-        ¿Sobre qué tema de <strong>${user.materiaActual || 'tus materias'}</strong> tienes dudas hoy? ¡Escribe, graba un audio o sube una imagen! 🚀`;
+        ¿Sobre qué tema de <strong>${materiaEscaped}</strong> tienes dudas hoy? ¡Escribe, graba un audio o sube una imagen! 🚀`;
       }
     }
 

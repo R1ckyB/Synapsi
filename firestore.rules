@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Perfil de Usuario: Estudiante gestiona su perfil; Profesores leen perfiles
+    match /usuarios/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['profesor', 'admin'];
+    }
+
+    // Grupos: Propietario o Alumnos inscritos pueden leer; Solo el profesor dueño o Admin puede modificar
+    match /grupos/{grupoId} {
+      allow read: if request.auth != null && (
+        resource.data.profesorId == request.auth.uid ||
+        request.auth.uid in resource.data.alumnos ||
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin'
+      );
+      allow create, update, delete: if request.auth != null && (
+        request.resource.data.profesorId == request.auth.uid ||
+        resource.data.profesorId == request.auth.uid ||
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin'
+      );
+    }
+
+    // Anuncios y Quizzes Asignados: Lectura para miembros, escritura reservada a profesores
+    match /anuncios/{anuncioId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['profesor', 'admin'];
+    }
+
+    match /quizzesAsignados/{quizId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['profesor', 'admin'];
+    }
+
+    // Interacciones de Tutoría
+    match /interacciones/{interaccionId} {
+      allow read, write: if request.auth != null && resource.data.estudianteId == request.auth.uid;
+    }
+  }
+}

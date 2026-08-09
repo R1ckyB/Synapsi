@@ -216,6 +216,79 @@ async function testPerfilWhatsapp() {
 }
 
 // ════════════════════════════════════════════════════════
+// SUITE 5: Autorización y Permisos de Grupo
+// ════════════════════════════════════════════════════════
+async function testAutorizacionGrupos() {
+  console.log('\n📋 Suite 5: Autorización y Permisos de Grupo');
+
+  const { exigirMiembroGrupo, exigirProfesorPropietario } = require('../middleware/grupos');
+  const { validarEntradaIA } = require('../middleware/aiValidator');
+  const firebase = require('../config/firebase');
+
+  const getDbOriginal = firebase.getDb;
+  firebase.getDb = () => ({
+    collection: (col) => ({
+      doc: (id) => ({
+        get: async () => ({
+          exists: id === 'GRUPO1',
+          id,
+          data: () => ({
+            nombre: 'Grupo Demo',
+            profesorId: 'profesor-123',
+            alumnos: ['alumno-456']
+          })
+        })
+      })
+    })
+  });
+
+  await test('Profesor ajeno no puede administrar grupo (403)', async () => {
+    const req = { usuario: { uid: 'profesor-789', rol: 'profesor' } };
+    try {
+      await exigirProfesorPropietario(req, 'GRUPO1');
+      assert.fail('Debería haber lanzado error 403');
+    } catch (err) {
+      assert.strictEqual(err.status, 403);
+    }
+  });
+
+  await test('Alumno ajeno no puede leer contenido de grupo (403)', async () => {
+    const req = { usuario: { uid: 'alumno-789', rol: 'estudiante' } };
+    try {
+      await exigirMiembroGrupo(req, 'GRUPO1');
+      assert.fail('Debería haber lanzado error 403');
+    } catch (err) {
+      assert.strictEqual(err.status, 403);
+    }
+  });
+
+  await test('Grupo inexistente lanza error 404', async () => {
+    const req = { usuario: { uid: 'profesor-123', rol: 'profesor' } };
+    try {
+      await exigirProfesorPropietario(req, 'INEXISTENTE');
+      assert.fail('Debería haber lanzado error 404');
+    } catch (err) {
+      assert.strictEqual(err.status, 404);
+    }
+  });
+
+  await test('Validación IA rechaza texto > 3,000 caracteres (400)', () => {
+    let statusCode = null;
+    let jsonRes = null;
+    const req = { body: { mensaje: 'A'.repeat(3001) } };
+    const res = {
+      status: (code) => { statusCode = code; return res; },
+      json: (data) => { jsonRes = data; return res; }
+    };
+    validarEntradaIA(req, res, () => {});
+    assert.strictEqual(statusCode, 400);
+    assert.ok(jsonRes.mensaje.includes('3,000'));
+  });
+
+  firebase.getDb = getDbOriginal;
+}
+
+// ════════════════════════════════════════════════════════
 // RUNNER PRINCIPAL
 // ════════════════════════════════════════════════════════
 async function run() {
@@ -228,6 +301,7 @@ async function run() {
   await testQuizGenerator();
   await testRateLimiter();
   await testPerfilWhatsapp();
+  await testAutorizacionGrupos();
 
   // ── Resumen final ──
   console.log('\n' + '─'.repeat(50));

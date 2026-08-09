@@ -67,6 +67,7 @@ router.post('/personalizado', async (req, res) => {
 });
 
 const { verificarProfesor } = require('../middleware/authMiddleware');
+const { exigirProfesorPropietario, exigirMiembroGrupo } = require('../middleware/grupos');
 
 /**
  * POST /api/quizzes/asignar-grupo
@@ -75,35 +76,29 @@ const { verificarProfesor } = require('../middleware/authMiddleware');
  */
 router.post('/asignar-grupo', verificarProfesor, async (req, res) => {
   try {
-    const { getDb } = require('../config/firebase');
-    const db = getDb();
-    const profesorId = req.usuario?.uid;
     const { grupoId, materia = 'General', nivelEducativo = 'secundaria', numPreguntas = 5 } = req.body;
     if (!grupoId) return res.status(400).json({ error: true, mensaje: 'Debes proporcionar el grupoId.' });
 
-    if (db) {
-      const grupoDoc = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
-      if (!grupoDoc.exists) {
-        return res.status(404).json({ error: true, mensaje: 'El grupo especificado no existe.' });
-      }
-      if (grupoDoc.data().profesorId !== profesorId) {
-        return res.status(403).json({ error: true, mensaje: 'No tienes permisos para asignar tareas a este grupo.' });
-      }
-    }
+    await exigirProfesorPropietario(req, grupoId);
+    const { getDb } = require('../config/firebase');
+    const db = getDb();
+    const profesorId = req.usuario?.uid;
 
     const quiz = await generarQuizAdaptativo(`${materia} — Tarea del Profesor`, nivelEducativo, numPreguntas, 'intermedio');
 
     if (db) {
       await db.collection('quizzesAsignados').add({
-        grupoId: grupoId.toUpperCase().trim(), profesorId, quiz, materia,
+        grupoId: grupoId.toUpperCase().trim(),
+        profesorId,
+        quiz,
+        materia,
         asignadoEn: new Date().toISOString(),
         activo: true
       });
     }
     res.json({ exito: true, quiz, grupoId, materia, timestamp: new Date().toISOString() });
   } catch (error) {
-    console.error('❌ Error asignando quiz al grupo:', error);
-    res.status(500).json({ error: true, mensaje: error.message });
+    res.status(error.status || 500).json({ error: true, mensaje: error.message });
   }
 });
 
@@ -114,24 +109,14 @@ router.post('/asignar-grupo', verificarProfesor, async (req, res) => {
  */
 router.get('/asignados', async (req, res) => {
   try {
+    const { grupoId } = req.query;
+    if (!grupoId) return res.json({ exito: true, quizzes: [] });
+
+    await exigirMiembroGrupo(req, grupoId);
     const { getDb } = require('../config/firebase');
     const db = getDb();
-    const { grupoId } = req.query;
-    const uid = req.usuario?.uid;
-    const rol = req.usuario?.rol;
 
-    if (!grupoId || !db) return res.json({ exito: true, quizzes: [] });
-
-    // Validar pertenencia del usuario al grupo
-    const grupoDoc = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
-    if (grupoDoc.exists) {
-      const data = grupoDoc.data();
-      const esProfesor = data.profesorId === uid;
-      const esAlumno = (data.alumnos || []).includes(uid);
-      if (!esProfesor && !esAlumno && rol !== 'admin') {
-        return res.status(403).json({ error: true, mensaje: 'No perteneces a este grupo para consultar sus tareas.' });
-      }
-    }
+    if (!db) return res.json({ exito: true, quizzes: [] });
 
     const snap = await db.collection('quizzesAsignados')
       .where('grupoId', '==', grupoId.toUpperCase().trim())
@@ -143,7 +128,7 @@ router.get('/asignados', async (req, res) => {
     const quizzes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     res.json({ exito: true, quizzes });
   } catch (error) {
-    res.status(500).json({ error: true, mensaje: error.message });
+    res.status(error.status || 500).json({ error: true, mensaje: error.message });
   }
 });
 

@@ -75,13 +75,15 @@ const webhookRouter  = require('./routes/webhook');
 app.use('/api/auth',    express.json({ limit: '50kb' }),  limiterAuth, authRouter);
 app.use('/api/webhook', express.urlencoded({ extended: true, limit: '50kb' }), webhookRouter);
 
-// Rutas protegidas (Firebase ID Token + rate limiting + validación de input)
-// FIX #5 — Las rutas de audio/imagen mantienen límite alto (base64 de archivos)
-app.use('/api/audio',      express.json({ limit: '10mb' }),  limiterIA, verificarToken, audioRouter);
-app.use('/api/imagen',     express.json({ limit: '10mb' }),  limiterIA, verificarToken, imagenRouter);
+const { validarEntradaIA } = require('./middleware/aiValidator');
+
+// Rutas protegidas (Firebase ID Token + rate limiting + validación de input de IA)
+// Las rutas de audio/imagen mantienen límite alto para archivos
+app.use('/api/audio',      express.json({ limit: '10mb' }),  limiterIA, verificarToken, validarEntradaIA, audioRouter);
+app.use('/api/imagen',     express.json({ limit: '10mb' }),  limiterIA, verificarToken, validarEntradaIA, imagenRouter);
 // El resto con límite estricto de texto
-app.use('/api/tutoria',    express.json({ limit: '50kb' }),  limiterIA,       verificarToken,    tutoriaRouter);
-app.use('/api/quizzes',    express.json({ limit: '50kb' }),  limiterQuiz,     verificarToken,    quizzesRouter);
+app.use('/api/tutoria',    express.json({ limit: '50kb' }),  limiterIA,       verificarToken, validarEntradaIA, tutoriaRouter);
+app.use('/api/quizzes',    express.json({ limit: '50kb' }),  limiterQuiz,     verificarToken, validarEntradaIA, quizzesRouter);
 app.use('/api/profesores', express.json({ limit: '50kb' }),  limiterProfesor, verificarToken, profesoresRouter);
 
 // Endpoint de verificación de salud

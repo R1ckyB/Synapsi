@@ -75,6 +75,17 @@ async function apiPostForm(endpoint, formData) {
   return data;
 }
 
+async function apiDelete(endpoint) {
+  const authHeader = await obtenerAuthHeader();
+  const res = await fetch(`${SYNAPSE_CONFIG.API_BASE}${endpoint}`, {
+    method: 'DELETE',
+    headers: { ...authHeader }
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.mensaje || `Error ${res.status}`);
+  return data;
+}
+
 /* ── STORAGE HELPERS ─────────────────────────────────────── */
 function saveLocal(key, value) {
   try { localStorage.setItem(`synapse_${key}`, JSON.stringify(value)); }
