@@ -49,6 +49,10 @@ router.post('/analizar', upload.single('imagen'), async (req, res) => {
 
     res.json({
       exito: true,
+      ...analisis,
+      observacion: analisis.descripcionError || analisis.ejercicioIdentificado || 'Análisis de libreta completado',
+      guia_socratica: analisis.preguntaSocratica || analisis.mensajeMotivador || 'Revisa tu procedimiento',
+      pistas: analisis.pistaAdicional ? [analisis.pistaAdicional] : [],
       analisis,
       timestamp: new Date().toISOString()
     });

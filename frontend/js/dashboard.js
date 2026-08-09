@@ -131,7 +131,7 @@ async function cargarDatosPerfil(user) {
     }
 
     // Cargar vacíos de conocimiento reales desde la API
-    const token = loadLocal('idToken');
+    const token = loadLocal('token') || loadLocal('idToken');
     if (token) {
       const respuesta = await fetch(
         `${SYNAPSE_CONFIG.API_BASE}/profesores/vacios/estudiante/${user.uid}`,

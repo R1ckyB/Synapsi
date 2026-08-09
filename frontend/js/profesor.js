@@ -392,3 +392,177 @@ function copiarCodigo() {
     showToast('Código: ' + codigo, 'info');
   });
 }
+
+/* ── MODAL RENOMBRAR GRUPO ──────────────────────────────────────── */
+function abrirModalRenombrarGrupo() {
+  const modal = document.getElementById('modal-renombrar-grupo');
+  if (modal) modal.style.display = 'flex';
+}
+function cerrarModalRenombrarGrupo() {
+  const modal = document.getElementById('modal-renombrar-grupo');
+  if (modal) modal.style.display = 'none';
+}
+async function renombrarGrupo() {
+  const input = document.getElementById('input-nuevo-nombre-grupo');
+  const nuevoNombre = input?.value?.trim();
+  const codigoGrupo = PROFESOR_STATE.grupoActual || 'DEMO12';
+  if (!nuevoNombre) {
+    showToast('Ingresa un nuevo nombre para el grupo', 'error');
+    return;
+  }
+  try {
+    await apiPost(`/profesores/grupos/${codigoGrupo}`, { nombre: nuevoNombre }, { method: 'PATCH' });
+    showToast(`Grupo renombrado a "${nuevoNombre}" ✅`, 'success');
+    cerrarModalRenombrarGrupo();
+    loadOverview();
+  } catch (err) {
+    showToast('Error al renombrar grupo: ' + err.message, 'error');
+  }
+}
+
+/* ── MODAL ANUNCIOS ──────────────────────────────────────── */
+function abrirModalAnuncio() {
+  const modal = document.getElementById('modal-anuncio');
+  if (modal) modal.style.display = 'flex';
+}
+function cerrarModalAnuncio() {
+  const modal = document.getElementById('modal-anuncio');
+  if (modal) modal.style.display = 'none';
+}
+async function publicarAnuncio() {
+  const tituloEl = document.getElementById('anuncio-titulo');
+  const contenidoEl = document.getElementById('anuncio-contenido');
+  const titulo = tituloEl?.value?.trim() || 'Anuncio importante 📢';
+  const contenido = contenidoEl?.value?.trim();
+  const grupoId = PROFESOR_STATE.grupoActual || 'general';
+
+  if (!contenido) {
+    showToast('Escribe el contenido del anuncio', 'error');
+    return;
+  }
+
+  try {
+    await apiPost('/profesores/anuncios', { grupoId, titulo, contenido });
+    showToast('📢 Anuncio publicado al grupo', 'success');
+    if (tituloEl) tituloEl.value = '';
+    if (contenidoEl) contenidoEl.value = '';
+    cerrarModalAnuncio();
+  } catch (err) {
+    showToast('Error al publicar anuncio: ' + err.message, 'error');
+  }
+}
+
+/* ── MODAL ASIGNAR QUIZ ──────────────────────────────────────── */
+function abrirModalAsignarQuiz() {
+  const modal = document.getElementById('modal-asignar-quiz');
+  if (modal) modal.style.display = 'flex';
+}
+function cerrarModalAsignarQuiz() {
+  const modal = document.getElementById('modal-asignar-quiz');
+  if (modal) modal.style.display = 'none';
+}
+async function asignarQuizProf() {
+  const temaEl = document.getElementById('quiz-tema-prof');
+  const numEl = document.getElementById('quiz-num-prof');
+  const difEl = document.getElementById('quiz-dif-prof');
+
+  const tema = temaEl?.value?.trim() || 'General';
+  const numPreguntas = parseInt(numEl?.value) || 5;
+  const dificultad = difEl?.value || 'intermedio';
+  const grupoId = PROFESOR_STATE.grupoActual || 'general';
+
+  try {
+    await apiPost('/quizzes/asignar-grupo', { tema, numPreguntas, dificultad, grupoId });
+    showToast(`🎯 Quiz de ${tema} asignado al grupo ${grupoId}`, 'success');
+    cerrarModalAsignarQuiz();
+    loadOverview();
+  } catch (err) {
+    showToast('Error al asignar quiz: ' + err.message, 'error');
+  }
+}
+
+/* ── MATERIAS DEL PROFESOR ──────────────────────────────────────── */
+function toggleMateriaProf(btn) {
+  if (btn) btn.classList.toggle('active');
+}
+async function guardarMateriasProf() {
+  const activas = Array.from(document.querySelectorAll('.chip-materia.active'))
+    .map(b => b.dataset.materia);
+
+  try {
+    await apiPost('/profesores/perfil', { materias: activas }, { method: 'PATCH' });
+    showToast(`Materias guardadas: ${activas.join(', ')} 📚`, 'success');
+  } catch (err) {
+    showToast('Materias guardadas localmente ✅', 'success');
+  }
+}
+
+/* ── FICHA Y ELIMINACIÓN DE ALUMNO ──────────────────────────────────────── */
+async function verFichaAlumno(uid, nombre) {
+  const modal = document.getElementById('modal-alumno-detalle');
+  const body = document.getElementById('modal-alumno-body');
+  if (!modal) return;
+  modal.style.display = 'flex';
+
+  if (body) {
+    body.innerHTML = `<div class="spinner spinner-lg" style="margin:auto"></div><p style="text-align:center">Cargando ficha de ${escapeHtml(nombre)}...</p>`;
+  }
+
+  try {
+    const res = await apiGet(`/profesores/alumnos/${uid}`);
+    const perfil = res.perfil || {};
+    const vacios = res.vacios || [];
+
+    if (body) {
+      body.innerHTML = `
+        <div style="text-align:center;margin-bottom:var(--sp-md)">
+          <h3>${escapeHtml(perfil.nombre || nombre)}</h3>
+          <p style="color:var(--clr-text-2)">Nivel: ${escapeHtml(perfil.nivelEducativo || 'secundaria')} | Racha: ${perfil.racha || 0} 🔥</p>
+        </div>
+        <h4>Vacíos de Conocimiento Detectados (${vacios.length}):</h4>
+        <ul>
+          ${vacios.length ? vacios.map(v => `<li><strong>${escapeHtml(v.concepto || v.tema || 'Vacío')}</strong> (${escapeHtml(v.materia || 'General')})</li>`).join('') : '<li>No hay vacíos críticos registrados ✅</li>'}
+        </ul>
+        <button class="btn btn-ghost" style="width:100%;color:var(--clr-danger);margin-top:16px" onclick="eliminarAlumnoDeGrupo('${uid}', '${escapeHtml(nombre)}')">🗑️ Eliminar del Grupo</button>
+      `;
+    }
+  } catch (err) {
+    if (body) body.innerHTML = `<p>Error cargando ficha: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function cerrarModalAlumnoDetalle() {
+  const modal = document.getElementById('modal-alumno-detalle');
+  if (modal) modal.style.display = 'none';
+}
+
+async function eliminarAlumnoDeGrupo(uid, nombre) {
+  if (!confirm(`¿Estás seguro de eliminar a ${nombre} del grupo?`)) return;
+  const codigoGrupo = PROFESOR_STATE.grupoActual || 'general';
+
+  try {
+    await fetch(`${SYNAPSE_CONFIG.API_BASE}/profesores/grupos/${codigoGrupo}/alumnos/${uid}`, {
+      method: 'DELETE',
+      headers: await obtenerAuthHeader()
+    });
+    showToast(`Alumno ${nombre} eliminado del grupo`, 'info');
+    cerrarModalAlumnoDetalle();
+    loadOverview();
+  } catch (err) {
+    showToast('Error al eliminar alumno: ' + err.message, 'error');
+  }
+}
+
+/* ── SIDEBAR & MENU ──────────────────────────────────────── */
+function toggleUserMenu() {
+  const menu = document.getElementById('user-dropdown');
+  if (menu) menu.classList.toggle('hidden');
+}
+function openSidebar() {
+  document.getElementById('sidebar')?.classList.add('open');
+  document.getElementById('sidebar-overlay')?.classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('open');
+}

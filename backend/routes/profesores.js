@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { obtenerVaciosGrupo, obtenerVaciosEstudiante } = require('../agents/vaciosService');
 const { getDb } = require('../config/firebase');
+const { verificarProfesor } = require('../middleware/authMiddleware');
 
 /** Genera un código de grupo único de 6 caracteres alfanuméricos */
 function generarCodigo() {
@@ -21,7 +22,7 @@ function generarCodigo() {
  * El profesor crea un nuevo grupo y recibe un código de invitación.
  * Body: { nombreGrupo: string }
  */
-router.post('/grupos', async (req, res) => {
+router.post('/grupos', verificarProfesor, async (req, res) => {
   try {
     const db = getDb();
     const profesorId = req.usuario?.uid;
@@ -104,7 +105,7 @@ router.post('/grupos/unirse', async (req, res) => {
  * GET /api/profesores/grupos
  * Lista todos los grupos del profesor autenticado.
  */
-router.get('/grupos', async (req, res) => {
+router.get('/grupos', verificarProfesor, async (req, res) => {
   try {
     const db = getDb();
     const profesorId = req.usuario?.uid;

@@ -62,26 +62,35 @@ async function obtenerVaciosGrupo(grupoId = 'general', totalEstudiantes = 30) {
     // Mock data realista para desarrollo
     return [
       {
+        tema: 'Tercera Ley de Newton (Acción y Reacción)',
         concepto: 'Tercera Ley de Newton (Acción y Reacción)',
         materia: 'Física',
+        porcentaje: 68,
         porcentajeDificultad: 68,
         consultasSemana: 24,
+        alumnos: 20,
         estudiantesAfectados: 20,
         tendencia: 'subiendo'
       },
       {
+        tema: 'Trinomio Cuadrado Perfecto',
         concepto: 'Trinomio Cuadrado Perfecto',
         materia: 'Matemáticas',
+        porcentaje: 54,
         porcentajeDificultad: 54,
         consultasSemana: 18,
+        alumnos: 16,
         estudiantesAfectados: 16,
         tendencia: 'estable'
       },
       {
+        tema: 'Ciclo de Krebs',
         concepto: 'Ciclo de Krebs',
         materia: 'Biología',
+        porcentaje: 42,
         porcentajeDificultad: 42,
         consultasSemana: 12,
+        alumnos: 13,
         estudiantesAfectados: 13,
         tendencia: 'bajando'
       }
@@ -106,16 +115,21 @@ async function obtenerVaciosGrupo(grupoId = 'general', totalEstudiantes = 30) {
 
   const vacios = snapshot.docs.map(doc => {
     const data = doc.data();
-    const numAfectados = (data.estudiantesAfectados || []).length;
+    const numAfectados = Array.isArray(data.estudiantesAfectados)
+      ? data.estudiantesAfectados.length
+      : (typeof data.estudiantesAfectados === 'number' ? data.estudiantesAfectados : 1);
     const porcentaje = Math.round((numAfectados / totalEstudiantes) * 100);
 
     return {
       id: doc.id,
+      tema: data.concepto,
       concepto: data.concepto,
       materia: data.materia,
+      porcentaje: porcentaje,
       porcentajeDificultad: porcentaje,
       consultasSemana: data.consultasSemana || 0,
       consultasTotales: data.consultasTotales || 0,
+      alumnos: numAfectados,
       estudiantesAfectados: numAfectados,
       ultimaDeteccion: data.ultimaDeteccion,
       tendencia: calcularTendencia(data)

@@ -26,8 +26,12 @@ const PORT = process.env.PORT || 3000;
 
 // ── Middlewares globales ──
 
-// CORS permisivo para API pública y Cloud Run
-app.use(cors());
+// CORS dinámico configurable
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*';
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' && allowedOrigins !== '*' ? allowedOrigins : '*',
+  credentials: true
+}));
 
 // FIX #5 — Límite global pequeño para endpoints de texto (protección DoS)
 app.use(express.json({ limit: '100kb' }));
@@ -68,7 +72,7 @@ app.use('/api/imagen',     express.json({ limit: '10mb' }),  limiterIA, verifica
 // El resto con límite estricto de texto
 app.use('/api/tutoria',    express.json({ limit: '50kb' }),  limiterIA,       verificarToken,    tutoriaRouter);
 app.use('/api/quizzes',    express.json({ limit: '50kb' }),  limiterQuiz,     verificarToken,    quizzesRouter);
-app.use('/api/profesores', express.json({ limit: '50kb' }),  limiterProfesor, verificarProfesor, profesoresRouter);
+app.use('/api/profesores', express.json({ limit: '50kb' }),  limiterProfesor, verificarToken, profesoresRouter);
 
 // Endpoint de verificación de salud
 app.get('/api/health', (req, res) => {

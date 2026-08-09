@@ -39,6 +39,7 @@ router.post('/procesar', upload.single('audio'), async (req, res) => {
 
     res.json({
       exito: true,
+      ...resultado,
       analisis: resultado,
       timestamp: new Date().toISOString()
     });

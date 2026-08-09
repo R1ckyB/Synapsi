@@ -120,8 +120,12 @@ function appendMessage(role, text, extras = {}) {
   let quizHtml = '';
   if (extras.quiz?.preguntas?.length) {
     const q = extras.quiz.preguntas[0];
+    const idxCorrecta = typeof q.respuestaCorrectaIndex === 'number'
+      ? q.respuestaCorrectaIndex
+      : (typeof q.respuestaCorrecta === 'number' ? q.respuestaCorrecta : 0);
+
     const opts = (q.opciones || []).map((op, i) =>
-      `<div class="quiz-option" onclick="handleInlineQuizAnswer(this, ${i === q.respuestaCorrecta}, '${escapeHtml(q.explicacion || '')}')">
+      `<div class="quiz-option" onclick="handleInlineQuizAnswer(this, ${i === idxCorrecta}, '${escapeHtml(q.explicacion || '')}')">
          ${String.fromCharCode(65+i)}. ${escapeHtml(op)}
        </div>`
     ).join('');

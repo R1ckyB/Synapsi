@@ -63,12 +63,24 @@ async function verificarToken(req, res, next) {
   try {
     // ── Verificar y decodificar el token con Firebase Admin ──
     const decodedToken = await auth.verifyIdToken(token);
+    const { getDb } = require('../config/firebase');
+    const db = getDb();
+
+    let userRol = decodedToken.rol || 'estudiante';
+    if (db && userRol === 'estudiante') {
+      try {
+        const userDoc = await db.collection('usuarios').doc(decodedToken.uid).get();
+        if (userDoc.exists && userDoc.data().rol) {
+          userRol = userDoc.data().rol;
+        }
+      } catch (e) { /* ignore read failure */ }
+    }
 
     req.usuario = {
       uid: decodedToken.uid,
       email: decodedToken.email || '',
       nombre: decodedToken.name || decodedToken.email || 'Usuario',
-      rol: decodedToken.rol || 'estudiante'
+      rol: userRol
     };
 
     return next();
