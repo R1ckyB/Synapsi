@@ -91,43 +91,35 @@ async function chat(systemPrompt, userMessage) {
  * Chat con historial de conversación.
  */
 async function chatConHistorial(systemPrompt, historial = [], nuevoMensaje = '') {
-  try {
-    return await conReintentos(async () => {
-      const modelInstance = getModel();
-      const contents = [];
+  return conReintentos(async () => {
+    const modelInstance = getModel();
+    const contents = [];
 
-      if (historial.length === 0) {
-        contents.push({
-          role: 'user',
-          parts: [{ text: `${systemPrompt}\n\n---\n\n${nuevoMensaje}` }]
-        });
-      } else {
-        contents.push({
-          role: 'user',
-          parts: [{ text: `${systemPrompt}\n\n---\n\n${historial[0].text}` }]
-        });
-        for (let i = 1; i < historial.length; i++) {
-          contents.push({
-            role: historial[i].role === 'model' ? 'model' : 'user',
-            parts: [{ text: historial[i].text }]
-          });
-        }
-        contents.push({ role: 'user', parts: [{ text: nuevoMensaje }] });
-      }
-
-      const result = await modelInstance.generateContent({
-        contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+    if (historial.length === 0) {
+      contents.push({
+        role: 'user',
+        parts: [{ text: `${systemPrompt}\n\n---\n\n${nuevoMensaje}` }]
       });
-      return result.response.text();
-    });
-  } catch (err) {
-    if (err.message?.includes('API key') || err.message?.includes('GEMINI_API_KEY') || err.status === 400) {
-      logger.warn('⚠️ Usando respuesta socrática simulada (API Key no configurada o inválida)');
-      return `¡Gran pregunta! Para ayudarte a razonar sobre esto: ¿qué pasaría si observamos la fuerza y la energía que actúan en este fenómeno? Intenta pensar en un ejemplo de tu vida cotidiana. 🤔`;
+    } else {
+      contents.push({
+        role: 'user',
+        parts: [{ text: `${systemPrompt}\n\n---\n\n${historial[0].text}` }]
+      });
+      for (let i = 1; i < historial.length; i++) {
+        contents.push({
+          role: historial[i].role === 'model' ? 'model' : 'user',
+          parts: [{ text: historial[i].text }]
+        });
+      }
+      contents.push({ role: 'user', parts: [{ text: nuevoMensaje }] });
     }
-    throw err;
-  }
+
+    const result = await modelInstance.generateContent({
+      contents,
+      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+    });
+    return result.response.text();
+  });
 }
 
 /**

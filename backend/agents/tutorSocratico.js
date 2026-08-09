@@ -119,7 +119,13 @@ async function procesarMensajeTutor(mensajeUsuario, estudiante = {}, historial =
     ? historial.slice(-MAX_HISTORIAL)
     : historial;
 
-  const respuestaBruta = await chatConHistorial(systemPrompt, historialTrimmed, mensajeUsuario);
+  let respuestaBruta;
+  try {
+    respuestaBruta = await chatConHistorial(systemPrompt, historialTrimmed, mensajeUsuario);
+  } catch (err) {
+    console.warn('⚠️ Gemini API Fallback en Tutor Socrático:', err.message);
+    respuestaBruta = `Para ayudarte a resolver "${mensajeUsuario.substring(0, 50)}...": ¿cuál crees que es el primer paso o dato fundamental que tenemos? Piénsalo paso a paso y cuéntame tu idea. 💪`;
+  }
 
   // Extraer etiquetas de acción o vacíos detectados
   const quizAccion = respuestaBruta.match(/\[ACCION:GENERAR_QUIZ\|tema:(.*?)\]/);

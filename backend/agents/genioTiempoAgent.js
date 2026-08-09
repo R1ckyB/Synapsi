@@ -72,8 +72,38 @@ REGLAS DE INTERACCIÓN:
   } catch (err) {
     console.warn('⚠️ Gemini API Fallback en Genio del Tiempo:', err.message);
     
-    // Simulación inteligente para el multiverso si la API falla o la Key es inválida
-    let respuestaFallback = `🌌 **El Salto al Multiverso**: Si alteramos esta ley fundamental, la estructura misma de la materia y el movimiento cambiaría de forma drástica.\n\n⚡ **Efecto Dominó en Cadena**:\n1. Las órbitas de los planetas y los objetos en superficie sufrirían aceleraciones extremas.\n2. La tecnología moderna y las estructuras arquitectónicas tendrían que rediseñarse por completo.\n3. Los seres vivos evolucionarían con características mecánicas y biológicas adaptadas a esta nueva densidad.\n\n❓ **Dilema de ${personaje.nombre}**: Si tuvieras en tus manos el poder de estabilizar este universo alternativo o regresar a la Tierra original, ¿qué principio científico aplicarías primero? 🤔`;
+    const q = mensajeUsuario.toLowerCase();
+    let salto = '';
+    let domino = [];
+    let dilema = '';
+
+    if (q.includes('newton') || q.includes('gravedad')) {
+      salto = 'Imagina un 1687 donde Sir Isaac Newton jamás contempló la caída de la manzana. Las Leyes del Movimiento y la Gravedad Universal nunca se formalizan en el Principia Mathematica.';
+      domino = [
+        'La navegación astronómica se estanca durante décadas, retrasando la exploración marítima y los viajes espaciales.',
+        'La Revolución Industrial adopta modelos puramente empíricos sin ecuaciones de fuerza, demorando la invención del ferrocarril y la aviación.',
+        'La física cuántica y la relatividad tardan un siglo más en emerger al no tener la mecánica clásica como punto de contraste.'
+      ];
+      dilema = `Si tú fueras un científico en ese siglo XVIII sin las ecuaciones de Newton, ¿qué experimento harías con péndulos o planos inclinados para deducir la atracción terrestre por ti mismo?`;
+    } else if (q.includes('planta') || q.includes('electricidad') || q.includes('oxígeno') || q.includes('oxigeno')) {
+      salto = 'Saltamos a un planeta paralelo donde la fotosíntesis fotosensible genera biocriocorrientes eléctricas directamente en el floema en lugar de liberar O2 gaseoso.';
+      domino = [
+        'Los bosques son gigantescas redes eléctricas vivas; la atmósfera tendría un nivel de oxígeno significativamente menor, cambiando la respiración celular animal.',
+        'La tecnología humana se basaría en baterías bio-botánicas: enchufarías tus dispositivos a los árboles para recargarlos.',
+        'Las tormentas provocarían relámpagos biológicos a través de la canopia de los junglas.'
+      ];
+      dilema = `En este mundo, ¿cómo habrían evolucionado los animales para sobrevivir sin oxígeno fotosintético atmosférico abundante?`;
+    } else {
+      salto = `Si alteráramos este principio en el multiverso (${mensajeUsuario.substring(0, 60)}...), el equilibrio natural cambiaría de forma fascinante.`;
+      domino = [
+        'Las fuerzas fundamentales y la estructura del movimiento crearían dinámicas completamente nuevas.',
+        'La ingeniería y los materiales modernos tendrían que adaptarse a este nuevo marco científico.',
+        'La biología y los ecosistemas encontrarían formas sorprendentes de evolución adaptativa.'
+      ];
+      dilema = `Como viajero del tiempo en este universo alternativo, ¿qué experimento preliminar realizarías para medir el impacto de esta alteración?`;
+    }
+
+    const respuestaFallback = `🌌 **El Salto al Multiverso**:\n${salto}\n\n⚡ **Efecto Dominó en Cadena**:\n1. ${domino[0]}\n2. ${domino[1]}\n3. ${domino[2]}\n\n❓ **Dilema de ${personaje.nombre}**:\n${dilema}`;
 
     return {
       respuesta: respuestaFallback,
