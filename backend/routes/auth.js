@@ -7,26 +7,25 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../config/firebase');
 
+const { verificarToken } = require('../middleware/authMiddleware');
+
 /**
  * POST /api/auth/registro
  * Registra o actualiza el perfil de un usuario en Firestore.
  */
-router.post('/registro', async (req, res) => {
+router.post('/registro', verificarToken, async (req, res) => {
   try {
-    const { uid, nombre, email, rol, nivelEducativo } = req.body;
-
-    if (!uid || !email) {
-      return res.status(400).json({ error: true, mensaje: 'Faltan campos obligatorios (uid, email).' });
-    }
+    const uid = req.usuario.uid; // Usar el UID verificado del token
+    const { nombre, email, rol, nivelEducativo } = req.body;
 
     const db = getDb();
-    const userRef = db ? db.collection('users').doc(uid) : null;
+    const userRef = db ? db.collection('usuarios').doc(uid) : null;
 
     const userData = {
       uid,
-      nombre: nombre || 'Usuario',
-      email,
-      rol: rol || 'estudiante',
+      nombre: nombre || req.usuario.nombre || 'Usuario',
+      email: email || req.usuario.email || '',
+      rol: rol || req.usuario.rol || 'estudiante',
       nivelEducativo: nivelEducativo || 'secundaria',
       fechaRegistro: new Date().toISOString()
     };
@@ -50,7 +49,7 @@ router.post('/registro', async (req, res) => {
  * GET /api/auth/perfil/:uid
  * Obtiene el perfil de un usuario.
  */
-router.get('/perfil/:uid', async (req, res) => {
+router.get('/perfil/:uid', verificarToken, async (req, res) => {
   try {
     const { uid } = req.params;
     const db = getDb();
@@ -65,7 +64,7 @@ router.get('/perfil/:uid', async (req, res) => {
       });
     }
 
-    const userDoc = await db.collection('users').doc(uid).get();
+    const userDoc = await db.collection('usuarios').doc(uid).get();
     if (!userDoc.exists) {
       return res.status(404).json({ error: true, mensaje: 'Usuario no encontrado' });
     }

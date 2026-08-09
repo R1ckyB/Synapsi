@@ -65,12 +65,14 @@ router.post('/personalizado', async (req, res) => {
   }
 });
 
+const { verificarProfesor } = require('../middleware/authMiddleware');
+
 /**
  * POST /api/quizzes/asignar-grupo
  * El profesor asigna un quiz a todos los alumnos de un grupo.
  * Body: { grupoId, materia, nivelEducativo, numPreguntas }
  */
-router.post('/asignar-grupo', async (req, res) => {
+router.post('/asignar-grupo', verificarProfesor, async (req, res) => {
   try {
     const { getDb } = require('../config/firebase');
     const db = getDb();
@@ -78,15 +80,19 @@ router.post('/asignar-grupo', async (req, res) => {
     const { grupoId, materia = 'General', nivelEducativo = 'secundaria', numPreguntas = 5 } = req.body;
     if (!grupoId) return res.status(400).json({ error: true, mensaje: 'Debes proporcionar el grupoId.' });
 
-    const quiz = await generarQuizAdaptativo(`${materia} — Tarea del Profesor`, nivelEducativo, numPreguntas, 'intermedio');
-
     if (db) {
+      const grupoDoc = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
+      if (grupoDoc.exists && grupoDoc.data().profesorId !== profesorId) {
+        return res.status(403).json({ error: true, mensaje: 'No tienes permisos para asignar tareas a este grupo.' });
+      }
       await db.collection('quizzesAsignados').add({
-        grupoId, profesorId, quiz, materia,
+        grupoId: grupoId.toUpperCase().trim(), profesorId, quiz, materia,
         asignadoEn: new Date().toISOString(),
         activo: true
       });
     }
+
+    const quiz = await generarQuizAdaptativo(`${materia} — Tarea del Profesor`, nivelEducativo, numPreguntas, 'intermedio');
     res.json({ exito: true, quiz, grupoId, materia, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('❌ Error asignando quiz al grupo:', error);

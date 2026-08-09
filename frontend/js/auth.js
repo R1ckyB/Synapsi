@@ -77,17 +77,34 @@ async function handleLogin(event) {
       const firebaseUser = result.user;
       const idToken = await firebaseUser.getIdToken().catch(() => '');
 
+      // Consultar perfil guardado en backend para conservar rol del docente
+      let userRol = 'estudiante';
+      try {
+        const perfilRes = await fetch(`${SYNAPSE_CONFIG.API_BASE}/auth/perfil/${firebaseUser.uid}`, {
+          headers: { 'Authorization': `Bearer ${idToken}` }
+        });
+        if (perfilRes.ok) {
+          const perfilData = await perfilRes.json();
+          if (perfilData.rol) userRol = perfilData.rol;
+        }
+      } catch (e) {
+        userRol = loadLocal('user')?.rol || 'estudiante';
+      }
+
       const user = {
         uid:            firebaseUser.uid,
         nombre:         firebaseUser.displayName || email.split('@')[0],
         email:          firebaseUser.email,
         foto:           firebaseUser.photoURL,
-        rol:            'estudiante',
+        rol:            userRol,
         nivelEducativo: 'secundaria',
       };
 
       saveLocal('user', user);
-      if (idToken) saveLocal('token', idToken);
+      if (idToken) {
+        saveLocal('token', idToken);
+        saveLocal('idToken', idToken);
+      }
 
       showToast(`¡Bienvenido, ${user.nombre}! 🎉`, 'success');
       setTimeout(() => {

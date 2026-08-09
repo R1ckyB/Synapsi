@@ -26,10 +26,18 @@ const PORT = process.env.PORT || 3000;
 
 // ── Middlewares globales ──
 
-// CORS dinámico configurable
-const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*';
+// CORS dinámico configurable (validador de origen que soporta credentials: true)
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : null;
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' && allowedOrigins !== '*' ? allowedOrigins : '*',
+  origin: (origin, callback) => {
+    if (!origin || process.env.NODE_ENV !== 'production' || !allowedOrigins) {
+      return callback(null, origin || true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, origin);
+    }
+    return callback(null, false);
+  },
   credentials: true
 }));
 

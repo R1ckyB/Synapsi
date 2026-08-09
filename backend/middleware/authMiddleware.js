@@ -49,15 +49,22 @@ async function verificarToken(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
-  // Si no hay token o es un token de sesión demo/local, usar usuario por defecto para no bloquear la IA
+  // Si no hay token o es un token demo, solo permitir si ALLOW_DEMO_AUTH=true
   if (!token || token === 'demo-token' || token.startsWith('demo-')) {
-    req.usuario = {
-      uid: 'demo-user',
-      email: 'estudiante@synapse.edu',
-      nombre: 'Estudiante',
-      rol: 'estudiante'
-    };
-    return next();
+    if (process.env.ALLOW_DEMO_AUTH === 'true') {
+      req.usuario = {
+        uid: 'demo-user',
+        email: 'estudiante@synapse.edu',
+        nombre: 'Estudiante',
+        rol: 'estudiante'
+      };
+      return next();
+    }
+    return res.status(401).json({
+      error: true,
+      codigo: 'TOKEN_REQUERIDO',
+      mensaje: 'Acceso denegado. Se requiere un token de sesión válido de Firebase.'
+    });
   }
 
   try {

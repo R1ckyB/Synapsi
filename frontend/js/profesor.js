@@ -2,6 +2,12 @@
 // profesor.js — Teacher Dashboard Logic
 // ============================================================
 
+/* ── STATE ────────────────────────────────────────────────── */
+window.PROFESOR_STATE = window.PROFESOR_STATE || {
+  grupoActual: 'DEMO12',
+  materias: ['Matemáticas', 'Física']
+};
+
 /* ── VIEW META ───────────────────────────────────────────── */
 const PROF_VIEW_META = {
   overview:      { title: 'Vista General',            breadcrumb: 'Panel del Profesor · Synapse v2.0' },
@@ -555,7 +561,7 @@ async function eliminarAlumnoDeGrupo(uid, nombre) {
 
 /* ── SIDEBAR & MENU ──────────────────────────────────────── */
 function toggleUserMenu() {
-  const menu = document.getElementById('user-dropdown');
+  const menu = document.getElementById('user-mini-menu') || document.getElementById('user-dropdown');
   if (menu) menu.classList.toggle('hidden');
 }
 function openSidebar() {
