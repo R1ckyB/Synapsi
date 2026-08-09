@@ -77,16 +77,11 @@ async function enviarExplicacionFeynman() {
   chatBox.scrollTop = chatBox.scrollHeight;
 
   try {
-    const res = await fetch('/api/tutoria/feynman', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tema: feynmanTemaActual,
-        explicacionUsuario: explicacion,
-        historial: feynmanHistorial
-      })
+    const data = await apiPost('/tutoria/feynman', {
+      tema: feynmanTemaActual,
+      explicacionUsuario: explicacion,
+      historial: feynmanHistorial
     });
-    const data = await res.json();
 
     document.getElementById(typingId)?.remove();
 

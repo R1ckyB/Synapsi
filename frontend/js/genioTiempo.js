@@ -84,16 +84,11 @@ async function enviarMensajeGenio() {
   chatBox.scrollTop = chatBox.scrollHeight;
 
   try {
-    const res = await fetch('/api/tutoria/genio-tiempo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        personajeId: currentPersonajeGenio,
-        mensaje,
-        historial: genioHistorial
-      })
+    const data = await apiPost('/tutoria/genio-tiempo', {
+      personajeId: currentPersonajeGenio,
+      mensaje,
+      historial: genioHistorial
     });
-    const data = await res.json();
 
     document.getElementById(typingId)?.remove();
 

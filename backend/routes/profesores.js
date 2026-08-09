@@ -126,10 +126,20 @@ router.get('/grupos', verificarProfesor, async (req, res) => {
  * Retorna las métricas de vacíos de conocimiento para el dashboard del profesor.
  * Query params opcionales: grupoId, totalEstudiantes
  */
-router.get('/vacios', async (req, res) => {
+router.get('/vacios', verificarProfesor, async (req, res) => {
   try {
+    const db = getDb();
+    const profesorId = req.usuario?.uid;
     const grupoId = req.query.grupoId || 'general';
     const totalEstudiantes = parseInt(req.query.totalEstudiantes) || 30;
+
+    if (db && grupoId !== 'general') {
+      const grupoDoc = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
+      if (!grupoDoc.exists) return res.status(404).json({ error: true, mensaje: 'Grupo no encontrado' });
+      if (grupoDoc.data().profesorId !== profesorId) {
+        return res.status(403).json({ error: true, mensaje: 'No tienes permisos sobre este grupo' });
+      }
+    }
 
     const vacios = await obtenerVaciosGrupo(grupoId, totalEstudiantes);
 
@@ -154,6 +164,31 @@ router.get('/vacios', async (req, res) => {
 router.get('/vacios/estudiante/:uid', async (req, res) => {
   try {
     const { uid } = req.params;
+    const solicitanteUid = req.usuario?.uid;
+    const solicitanteRol = req.usuario?.rol;
+    const db = getDb();
+
+    // Solo el propio estudiante o un profesor de su grupo puede consultar sus vacíos
+    if (solicitanteUid !== uid) {
+      if (solicitanteRol !== 'profesor' && solicitanteRol !== 'admin') {
+        return res.status(403).json({ error: true, mensaje: 'No tienes permiso para consultar los vacíos de este estudiante.' });
+      }
+      if (db) {
+        const gruposProfesor = await db.collection('grupos')
+          .where('profesorId', '==', solicitanteUid)
+          .get();
+
+        const perteneceAProfesor = gruposProfesor.docs.some(doc => {
+          const alumnos = doc.data().alumnos || [];
+          return alumnos.includes(uid);
+        });
+
+        if (!perteneceAProfesor) {
+          return res.status(403).json({ error: true, mensaje: 'No tienes permiso para consultar los vacíos de este estudiante.' });
+        }
+      }
+    }
+
     const vacios = await obtenerVaciosEstudiante(uid);
 
     res.json({
@@ -302,8 +337,21 @@ router.get('/anuncios/:grupoId', async (req, res) => {
   try {
     const db = getDb();
     const { grupoId } = req.params;
+    const uid = req.usuario?.uid;
+    const rol = req.usuario?.rol;
 
     if (!db) return res.json({ exito: true, anuncios: [] });
+
+    // Validar pertenencia del usuario al grupo
+    const grupoDoc = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
+    if (grupoDoc.exists) {
+      const data = grupoDoc.data();
+      const esProfesor = data.profesorId === uid;
+      const esAlumno = (data.alumnos || []).includes(uid);
+      if (!esProfesor && !esAlumno && rol !== 'admin') {
+        return res.status(403).json({ error: true, mensaje: 'No perteneces a este grupo para ver sus anuncios.' });
+      }
+    }
 
     const snap = await db.collection('anuncios')
       .where('grupoId', '==', grupoId.toUpperCase().trim())
@@ -339,7 +387,7 @@ router.get('/alumnos/:uid', verificarProfesor, async (req, res) => {
         return alumnos.includes(uid);
       });
 
-      if (!perteneceAProfesor && gruposProfesor.size > 0) {
+      if (!perteneceAProfesor) {
         return res.status(403).json({
           error: true,
           mensaje: 'No tienes permiso para consultar el expediente de este estudiante.'

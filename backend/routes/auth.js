@@ -48,7 +48,7 @@ router.post('/registro', verificarToken, async (req, res) => {
     res.json({
       exito: true,
       mensaje: 'Usuario registrado correctamente (modo sin DB)',
-      usuario: { uid, nombre, email, rol: rol || 'estudiante', nivelEducativo }
+      usuario: { uid, nombre, email, rol: finalRol, nivelEducativo }
     });
   } catch (error) {
     console.error('Error en registro:', error);

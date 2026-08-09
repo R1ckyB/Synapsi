@@ -76,12 +76,7 @@ async function iniciarExamenDiagnostico(materia) {
     const user = loadLocal('user') || {};
     const nivelEducativo = user.nivelEducativo || 'secundaria';
 
-    const res = await fetch('/api/quizzes/diagnostico', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ materia, nivelEducativo })
-    });
-    const data = await res.json();
+    const data = await apiPost('/quizzes/diagnostico', { materia, nivelEducativo });
 
     if (!data.exito || !data.quiz) throw new Error('No se pudo generar el diagnóstico');
 

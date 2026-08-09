@@ -55,8 +55,9 @@ router.post('/diagnostico', async (req, res) => {
  */
 router.post('/personalizado', async (req, res) => {
   try {
-    const { estudianteId, nivelEducativo, numPreguntas } = req.body;
-    if (!estudianteId) return res.status(400).json({ error: true, mensaje: 'Debes proporcionar el ID del estudiante.' });
+    const estudianteId = req.usuario?.uid || req.body.estudianteId;
+    const { nivelEducativo, numPreguntas } = req.body;
+    if (!estudianteId) return res.status(400).json({ error: true, mensaje: 'Estudiante no identificado.' });
     const quiz = await generarQuizPorVacios(estudianteId, nivelEducativo || 'secundaria', numPreguntas || 5);
     res.json({ exito: true, quiz, personalizado: true, timestamp: new Date().toISOString() });
   } catch (error) {
@@ -116,10 +117,24 @@ router.get('/asignados', async (req, res) => {
     const { getDb } = require('../config/firebase');
     const db = getDb();
     const { grupoId } = req.query;
+    const uid = req.usuario?.uid;
+    const rol = req.usuario?.rol;
+
     if (!grupoId || !db) return res.json({ exito: true, quizzes: [] });
 
+    // Validar pertenencia del usuario al grupo
+    const grupoDoc = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
+    if (grupoDoc.exists) {
+      const data = grupoDoc.data();
+      const esProfesor = data.profesorId === uid;
+      const esAlumno = (data.alumnos || []).includes(uid);
+      if (!esProfesor && !esAlumno && rol !== 'admin') {
+        return res.status(403).json({ error: true, mensaje: 'No perteneces a este grupo para consultar sus tareas.' });
+      }
+    }
+
     const snap = await db.collection('quizzesAsignados')
-      .where('grupoId', '==', grupoId)
+      .where('grupoId', '==', grupoId.toUpperCase().trim())
       .where('activo', '==', true)
       .orderBy('asignadoEn', 'desc')
       .limit(5)

@@ -23,12 +23,25 @@ router.post('/mensaje', validarMensajeTutoria, async (req, res) => {
       return res.status(400).json({ error: true, mensaje: 'El mensaje no puede estar vacío.' });
     }
 
+    let estudianteGrupoId = estudiante?.grupoId || 'general';
+    const { getDb } = require('../config/firebase');
+    const db = getDb();
+
+    if (db && req.usuario?.uid) {
+      try {
+        const userDoc = await db.collection('usuarios').doc(req.usuario.uid).get();
+        if (userDoc.exists && userDoc.data().grupoId) {
+          estudianteGrupoId = userDoc.data().grupoId;
+        }
+      } catch (e) { /* ignore read error */ }
+    }
+
     const datosEstudiante = {
       uid: req.usuario?.uid || estudiante?.uid || 'anonimo',
       nombre: estudiante?.nombre || req.usuario?.nombre || 'Estudiante',
       nivelEducativo: estudiante?.nivelEducativo || 'secundaria',
       materiaActual: estudiante?.materiaActual || 'General',
-      grupoId: estudiante?.grupoId || 'general'
+      grupoId: estudianteGrupoId
     };
 
     const resultado = await procesarMensajeTutor(mensaje, datosEstudiante, historial || []);
