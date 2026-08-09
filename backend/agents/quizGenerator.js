@@ -21,7 +21,10 @@ function parsearJSONSeguro(textoRaw) {
     return JSON.parse(textoLimpio);
   } catch (err) {
     require('../utils/logger').error('Error parseando JSON de Gemini:', { textoRaw: textoRaw.slice(0, 200), err: err.message });
-    throw new Error('La IA generó una respuesta con formato inválido. Reintentando...');
+    // FIX #6 — Lanzar error tipado para que el retry lo capture
+    const parseError = new Error('JSON_PARSE_FAILED');
+    parseError.rawText = textoRaw;
+    throw parseError;
   }
 }
 
@@ -36,7 +39,23 @@ function parsearJSONSeguro(textoRaw) {
  * @param {Array} vaciosDetectados - Lista de conceptos con vacío para enfocar el quiz
  * @returns {Object} Quiz en formato JSON estructurado
  */
-async function generarQuizAdaptativo(tema, nivelEducativo = 'secundaria', numPreguntas = 3, dificultad = 'intermedio', vaciosDetectados = []) {
+/**
+ * FIX #6 — Wrapper con retry automático (máx 2 intentos).
+ * Si Gemini devuelve JSON malformado, reintenta una vez en vez de devolver error 500 al usuario.
+ */
+async function generarQuizAdaptativo(tema, nivelEducativo = 'secundaria', numPreguntas = 3, dificultad = 'intermedio', vaciosDetectados = [], _intentos = 2) {
+  try {
+    return await _generarQuizAdaptativoInterno(tema, nivelEducativo, numPreguntas, dificultad, vaciosDetectados);
+  } catch (err) {
+    if (_intentos > 0 && (err.message === 'JSON_PARSE_FAILED' || err.message?.includes('inválido'))) {
+      require('../utils/logger').warn(`Quiz JSON malformado, reintentando... (intentos restantes: ${_intentos})`);
+      return generarQuizAdaptativo(tema, nivelEducativo, numPreguntas, dificultad, vaciosDetectados, _intentos - 1);
+    }
+    throw err;
+  }
+}
+
+async function _generarQuizAdaptativoInterno(tema, nivelEducativo, numPreguntas, dificultad, vaciosDetectados = []) {
   const enfoquePorVacios = vaciosDetectados.length > 0
     ? `\nENFOQUE ESPECIAL: El estudiante tiene dificultades con estos conceptos específicos, incluye al menos ${Math.min(vaciosDetectados.length, numPreguntas - 1)} preguntas enfocadas en ellos:\n${vaciosDetectados.map((v, i) => `  ${i + 1}. ${v.concepto || v}`).join('\n')}`
     : '';
@@ -78,7 +97,7 @@ DEBES DEVOLVER ÚNICAMENTE UN OBJETO JSON CON LA SIGUIENTE ESTRUCTURA ESTRICTA:
 
   const userMessage = `Genera el quiz de ${numPreguntas} preguntas para "${tema}" con dificultad progresiva desde ${dificultad}.`;
 
-  // FIX #9 — Usar parsearJSONSeguro en lugar de confiar en el raw output
+  // Usar parsearJSONSeguro con retry automático
   const textoRaw = await chatJSON(systemPrompt, userMessage, { raw: true }).catch(() => null);
   if (textoRaw && typeof textoRaw === 'string') {
     return parsearJSONSeguro(textoRaw);

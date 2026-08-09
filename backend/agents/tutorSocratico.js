@@ -112,7 +112,14 @@ IDIOMA (i18n — XPRIZE Internacional)
 async function procesarMensajeTutor(mensajeUsuario, estudiante = {}, historial = []) {
   const systemPrompt = generarPromptTutorSocratico(estudiante);
 
-  const respuestaBruta = await chatConHistorial(systemPrompt, historial, mensajeUsuario);
+  // FIX #8 — Limitar historial a los últimos 20 mensajes para evitar overflow de tokens
+  // y mantener la latencia y costos de Gemini bajo control en sesiones largas.
+  const MAX_HISTORIAL = 20;
+  const historialTrimmed = historial.length > MAX_HISTORIAL
+    ? historial.slice(-MAX_HISTORIAL)
+    : historial;
+
+  const respuestaBruta = await chatConHistorial(systemPrompt, historialTrimmed, mensajeUsuario);
 
   // Extraer etiquetas de acción o vacíos detectados
   const quizAccion = respuestaBruta.match(/\[ACCION:GENERAR_QUIZ\|tema:(.*?)\]/);
@@ -189,25 +196,52 @@ async function procesarImagenCuaderno(imagenBuffer, mimeType, estudiante = {}) {
 function detectarEstadoEmocional(mensaje) {
   const texto = mensaje.toLowerCase();
 
+  // FIX #5 — Palabras clave en Español + Inglés + Portugués para compatibilidad internacional (XPRIZE)
   const patrones = {
     frustrado: [
+      // Español
       'no entiendo', 'no le entiendo', 'ya me rendí', 'me rindo', 'es imposible',
       'no puedo', 'estoy harto', 'no me sale', 'ya no sé', 'me desespera',
-      'odio esto', 'no sirvo para esto', 'es muy difícil'
+      'odio esto', 'no sirvo para esto', 'es muy difícil',
+      // Inglés
+      'i give up', 'i quit', "i don't understand", 'i cant do this', "i can't do this",
+      'this is impossible', 'i hate this', 'so frustrated', 'this is too hard',
+      'i dont get it', "i don't get it",
+      // Portugués
+      'não entendo', 'desisto', 'não consigo', 'muito difícil'
     ],
     confundido: [
+      // Español
       'no sé por dónde', 'me perdí', 'cómo empiezo', 'no sé qué hacer',
       'estoy confundido', 'no entiendo la pregunta', 'qué debo hacer',
-      'cuál es el primer paso', 'help', 'ayuda'
+      'cuál es el primer paso', 'help', 'ayuda',
+      // Inglés
+      'i am confused', "i'm confused", 'where do i start', 'i have no idea',
+      'what should i do', 'i am lost', "i'm lost", 'how do i start',
+      // Portugués
+      'estou confuso', 'não sei por onde começar'
     ],
     curioso: [
+      // Español
       'por qué pasa', 'y eso por qué', 'tiene que ver con', 'se relaciona con',
-      'cuéntame más', 'qué interesante', 'en la vida real', 'para qué sirve'
+      'cuéntame más', 'qué interesante', 'en la vida real', 'para qué sirve',
+      // Inglés
+      'why does', 'how does this relate', 'tell me more', 'how is this used',
+      'in real life', 'what is this for', 'interesting', 'i am curious',
+      // Portugués
+      'por que acontece', 'me conta mais'
     ],
     dominando: [
+      // Español
       'ya le entendí', 'ya entendí', 'fácil', 'ponme algo más difícil',
       'quiero un reto', 'evalúame', 'ponme un quiz', 'ya lo domino',
-      'eso ya me lo sé', 'siguiente tema'
+      'eso ya me lo sé', 'siguiente tema',
+      // Inglés
+      'i got it', 'i understand now', 'easy', 'give me something harder',
+      'i want a challenge', 'test me', 'quiz me', 'i already know this',
+      'next topic', 'i mastered this',
+      // Portugués
+      'já entendi', 'fácil', 'me dê um desafio'
     ]
   };
 
