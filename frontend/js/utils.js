@@ -160,10 +160,23 @@ function closeSidebar() {
   document.body.style.overflow = '';
 }
 
-/* ── USER MENU ───────────────────────────────────────────── */
+/* ── USER MENU & LOGOUT ──────────────────────────────────── */
 function toggleUserMenu() {
   const menu = document.getElementById('user-mini-menu');
   if (menu) menu.classList.toggle('hidden');
+}
+
+function handleLogout() {
+  clearLocal('user');
+  clearLocal('token');
+  clearLocal('historial');
+  if (window.firebase && firebase.auth) {
+    try { firebase.auth().signOut(); } catch (e) {}
+  }
+  showToast('Sesión cerrada 🚪', 'info', 1500);
+  setTimeout(() => {
+    window.location.href = 'index.html';
+  }, 300);
 }
 
 // Cerrar user menu al hacer click fuera
