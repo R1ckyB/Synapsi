@@ -365,14 +365,7 @@ async function crearGrupo() {
   txt.textContent = 'Creando...';
   spin.classList.remove('hidden');
 
-  try {
-    const token = loadLocal('token') || '';
-    const res = await fetch('/api/profesores/grupos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ nombreGrupo })
-    });
-    const data = await res.json();
+    const data = await apiPost('/profesores/grupos', { nombreGrupo });
 
     if (!data.exito) throw new Error(data.mensaje || 'Error al crear grupo');
 

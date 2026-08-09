@@ -152,13 +152,11 @@ async function finalizarExamenDiagnostico() {
   `;
 
   try {
-    const res = await fetch('/api/quizzes/evaluar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quiz: currentDiagnosticoQuiz, respuestas: diagnosticoRespuestas })
+    const data = await apiPost('/quizzes/evaluar', {
+      quiz: currentDiagnosticoQuiz,
+      respuestas: diagnosticoRespuestas
     });
-    const data = await res.json();
-    const resultado = data.resultado;
+    const resultado = data.resultado || data;
 
     // Determinar nivel asignado
     let nivelAsignado = 'Básico';

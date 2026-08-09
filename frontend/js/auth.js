@@ -197,13 +197,7 @@ async function handleRegister(event) {
     const codigoGrupoInput = document.getElementById('reg-codigo-grupo');
     const codigoGrupo = codigoGrupoInput ? codigoGrupoInput.value.trim().toUpperCase() : '';
     if (selectedRole === 'estudiante' && codigoGrupo.length === 6) {
-      try {
-        const joinRes = await fetch('/api/profesores/grupos/unirse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-          body: JSON.stringify({ codigo: codigoGrupo })
-        });
-        const joinData = await joinRes.json();
+        const joinData = await apiPost('/profesores/grupos/unirse', { codigo: codigoGrupo });
         if (joinData.exito) {
           // Actualizar localStorage con grupoId
           user.grupoId = joinData.grupoId;
