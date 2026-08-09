@@ -174,7 +174,7 @@ router.get('/vacios/estudiante/:uid', async (req, res) => {
  * Actualiza las materias que imparte el profesor.
  * Body: { materias: ['Matemáticas', 'Física'] }
  */
-router.patch('/perfil', async (req, res) => {
+router.patch('/perfil', verificarProfesor, async (req, res) => {
   try {
     const db = getDb();
     const profesorId = req.usuario?.uid;
@@ -197,16 +197,23 @@ router.patch('/perfil', async (req, res) => {
  * Renombra un grupo.
  * Body: { nombre: string }
  */
-router.patch('/grupos/:codigo', async (req, res) => {
+router.patch('/grupos/:codigo', verificarProfesor, async (req, res) => {
   try {
     const db = getDb();
+    const profesorId = req.usuario?.uid;
     const { codigo } = req.params;
     const { nombre } = req.body;
 
     if (!nombre) return res.status(400).json({ error: true, mensaje: 'Nombre es requerido' });
 
     if (db) {
-      await db.collection('grupos').doc(codigo.toUpperCase()).update({ nombre });
+      const docRef = db.collection('grupos').doc(codigo.toUpperCase().trim());
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) return res.status(404).json({ error: true, mensaje: 'Grupo no encontrado' });
+      if (docSnap.data().profesorId !== profesorId) {
+        return res.status(403).json({ error: true, mensaje: 'No tienes permisos sobre este grupo' });
+      }
+      await docRef.update({ nombre });
     }
     res.json({ exito: true, codigo: codigo.toUpperCase(), nombre });
   } catch (error) {
@@ -218,14 +225,21 @@ router.patch('/grupos/:codigo', async (req, res) => {
  * DELETE /api/profesores/grupos/:codigo/alumnos/:uid
  * Elimina un alumno de un grupo.
  */
-router.delete('/grupos/:codigo/alumnos/:uid', async (req, res) => {
+router.delete('/grupos/:codigo/alumnos/:uid', verificarProfesor, async (req, res) => {
   try {
     const db = getDb();
+    const profesorId = req.usuario?.uid;
     const { codigo, uid } = req.params;
 
     if (db) {
+      const docRef = db.collection('grupos').doc(codigo.toUpperCase().trim());
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) return res.status(404).json({ error: true, mensaje: 'Grupo no encontrado' });
+      if (docSnap.data().profesorId !== profesorId) {
+        return res.status(403).json({ error: true, mensaje: 'No tienes permisos sobre este grupo' });
+      }
       const admin = require('firebase-admin');
-      await db.collection('grupos').doc(codigo.toUpperCase()).update({
+      await docRef.update({
         alumnos: admin.firestore.FieldValue.arrayRemove(uid)
       });
       await db.collection('usuarios').doc(uid).set(
@@ -244,7 +258,7 @@ router.delete('/grupos/:codigo/alumnos/:uid', async (req, res) => {
  * El profesor crea un anuncio para su grupo.
  * Body: { grupoId, titulo, contenido }
  */
-router.post('/anuncios', async (req, res) => {
+router.post('/anuncios', verificarProfesor, async (req, res) => {
   try {
     const db = getDb();
     const profesorId = req.usuario?.uid;
@@ -255,7 +269,7 @@ router.post('/anuncios', async (req, res) => {
     }
 
     const anuncio = {
-      grupoId,
+      grupoId: grupoId.toUpperCase().trim(),
       profesorId,
       titulo: titulo || 'Anuncio de tu Profesor 📢',
       contenido,
@@ -263,6 +277,11 @@ router.post('/anuncios', async (req, res) => {
     };
 
     if (db) {
+      const docSnap = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
+      if (!docSnap.exists) return res.status(404).json({ error: true, mensaje: 'Grupo no encontrado' });
+      if (docSnap.data().profesorId !== profesorId) {
+        return res.status(403).json({ error: true, mensaje: 'No tienes permisos sobre este grupo' });
+      }
       const docRef = await db.collection('anuncios').add(anuncio);
       anuncio.id = docRef.id;
     } else {
@@ -287,7 +306,7 @@ router.get('/anuncios/:grupoId', async (req, res) => {
     if (!db) return res.json({ exito: true, anuncios: [] });
 
     const snap = await db.collection('anuncios')
-      .where('grupoId', '==', grupoId)
+      .where('grupoId', '==', grupoId.toUpperCase().trim())
       .orderBy('creadoEn', 'desc')
       .limit(5)
       .get();
@@ -303,7 +322,7 @@ router.get('/anuncios/:grupoId', async (req, res) => {
  * GET /api/profesores/alumnos/:uid
  * Retorna la ficha completa de un estudiante individual (vacíos, nivel por materia, racha).
  */
-router.get('/alumnos/:uid', async (req, res) => {
+router.get('/alumnos/:uid', verificarProfesor, async (req, res) => {
   try {
     const db = getDb();
     const { uid } = req.params;

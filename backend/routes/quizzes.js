@@ -82,17 +82,23 @@ router.post('/asignar-grupo', verificarProfesor, async (req, res) => {
 
     if (db) {
       const grupoDoc = await db.collection('grupos').doc(grupoId.toUpperCase().trim()).get();
-      if (grupoDoc.exists && grupoDoc.data().profesorId !== profesorId) {
+      if (!grupoDoc.exists) {
+        return res.status(404).json({ error: true, mensaje: 'El grupo especificado no existe.' });
+      }
+      if (grupoDoc.data().profesorId !== profesorId) {
         return res.status(403).json({ error: true, mensaje: 'No tienes permisos para asignar tareas a este grupo.' });
       }
+    }
+
+    const quiz = await generarQuizAdaptativo(`${materia} — Tarea del Profesor`, nivelEducativo, numPreguntas, 'intermedio');
+
+    if (db) {
       await db.collection('quizzesAsignados').add({
         grupoId: grupoId.toUpperCase().trim(), profesorId, quiz, materia,
         asignadoEn: new Date().toISOString(),
         activo: true
       });
     }
-
-    const quiz = await generarQuizAdaptativo(`${materia} — Tarea del Profesor`, nivelEducativo, numPreguntas, 'intermedio');
     res.json({ exito: true, quiz, grupoId, materia, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('❌ Error asignando quiz al grupo:', error);

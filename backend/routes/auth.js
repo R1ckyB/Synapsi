@@ -19,25 +19,35 @@ router.post('/registro', verificarToken, async (req, res) => {
     const { nombre, email, rol, nivelEducativo } = req.body;
 
     const db = getDb();
-    const userRef = db ? db.collection('usuarios').doc(uid) : null;
+    let finalRol = 'estudiante';
 
-    const userData = {
-      uid,
-      nombre: nombre || req.usuario.nombre || 'Usuario',
-      email: email || req.usuario.email || '',
-      rol: rol || req.usuario.rol || 'estudiante',
-      nivelEducativo: nivelEducativo || 'secundaria',
-      fechaRegistro: new Date().toISOString()
-    };
+    if (db) {
+      const userRef = db.collection('usuarios').doc(uid);
+      const docSnap = await userRef.get();
+      if (docSnap.exists && docSnap.data().rol) {
+        // Preservar rol existente para prevenir escalación arbitraria de privilegios
+        finalRol = docSnap.data().rol;
+      } else if (rol === 'profesor' || rol === 'estudiante') {
+        finalRol = rol;
+      }
 
-    if (userRef) {
+      const userData = {
+        uid,
+        nombre: nombre || req.usuario.nombre || 'Usuario',
+        email: email || req.usuario.email || '',
+        rol: finalRol,
+        nivelEducativo: nivelEducativo || 'secundaria',
+        fechaRegistro: docSnap.exists ? docSnap.data().fechaRegistro : new Date().toISOString()
+      };
+
       await userRef.set(userData, { merge: true });
+      return res.json({ exito: true, mensaje: 'Usuario registrado correctamente', usuario: userData });
     }
 
     res.json({
       exito: true,
-      mensaje: 'Usuario registrado correctamente',
-      usuario: userData
+      mensaje: 'Usuario registrado correctamente (modo sin DB)',
+      usuario: { uid, nombre, email, rol: rol || 'estudiante', nivelEducativo }
     });
   } catch (error) {
     console.error('Error en registro:', error);
@@ -47,11 +57,19 @@ router.post('/registro', verificarToken, async (req, res) => {
 
 /**
  * GET /api/auth/perfil/:uid
- * Obtiene el perfil de un usuario.
+ * Obtiene el perfil del usuario autenticado o de un estudiante (si es profesor).
  */
 router.get('/perfil/:uid', verificarToken, async (req, res) => {
   try {
     const { uid } = req.params;
+    const solicitanteUid = req.usuario?.uid;
+    const solicitanteRol = req.usuario?.rol;
+
+    // Solo el propio usuario o un profesor/admin puede consultar este perfil
+    if (solicitanteUid !== uid && solicitanteRol !== 'profesor' && solicitanteRol !== 'admin') {
+      return res.status(403).json({ error: true, mensaje: 'No tienes permiso para consultar el perfil de otro usuario.' });
+    }
+
     const db = getDb();
 
     if (!db) {

@@ -26,17 +26,19 @@ const PORT = process.env.PORT || 3000;
 
 // ── Middlewares globales ──
 
-// CORS dinámico configurable (validador de origen que soporta credentials: true)
-const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : null;
+// CORS estricto configurable en producción
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : null;
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || process.env.NODE_ENV !== 'production' || !allowedOrigins) {
+    // Solicitudes locales/desarrollo o sin header Origin (curl/mobile native)
+    if (!origin || process.env.NODE_ENV !== 'production') {
       return callback(null, origin || true);
     }
-    if (allowedOrigins.includes(origin)) {
+    // En producción: validar contra la lista explícita de orígenes permitidos
+    if (allowedOrigins && allowedOrigins.includes(origin)) {
       return callback(null, origin);
     }
-    return callback(null, false);
+    return callback(new Error('Acceso denegado por política de CORS en producción'), false);
   },
   credentials: true
 }));
