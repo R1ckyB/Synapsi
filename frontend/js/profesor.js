@@ -374,6 +374,7 @@ async function crearGrupo() {
   txt.textContent = 'Creando...';
   spin.classList.remove('hidden');
 
+  try {
     const data = await apiPost('/profesores/grupos', { nombreGrupo });
 
     if (!data.exito) throw new Error(data.mensaje || 'Error al crear grupo');

@@ -207,6 +207,7 @@ async function handleRegister(event) {
     const codigoGrupoInput = document.getElementById('reg-codigo-grupo');
     const codigoGrupo = codigoGrupoInput ? codigoGrupoInput.value.trim().toUpperCase() : '';
     if (selectedRole === 'estudiante' && codigoGrupo.length === 6) {
+      try {
         const joinData = await apiPost('/profesores/grupos/unirse', { codigo: codigoGrupo });
         if (joinData.exito) {
           // Actualizar localStorage con grupoId
