@@ -48,24 +48,17 @@ async function conReintentos(fn, intentos = MAX_REINTENTOS, espera = BACKOFF_BAS
 let genAI = null;
 let model = null;
 
-function getModel() {
-  if (!model) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        'Falta GEMINI_API_KEY en las variables de entorno (.env)\n' +
-        'Obtén tu API key gratuita en: https://ai.google.dev/'
-      );
-    }
-
-    genAI = new GoogleGenerativeAI(apiKey);
-    model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-    });
-
-    console.log('🤖 Gemini API conectado (Modelo activo: gemini-2.0-flash)');
+function getModel(modelName = 'gemini-flash-latest') {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'Falta GEMINI_API_KEY en las variables de entorno (.env)\n' +
+      'Obtén tu API key gratuita en: https://ai.google.dev/'
+    );
   }
-  return model;
+
+  if (!genAI) genAI = new GoogleGenerativeAI(apiKey);
+  return genAI.getGenerativeModel({ model: modelName });
 }
 
 /**
