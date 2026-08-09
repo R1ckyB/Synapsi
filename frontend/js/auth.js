@@ -77,8 +77,10 @@ async function handleLogin(event) {
       const firebaseUser = result.user;
       const idToken = await firebaseUser.getIdToken().catch(() => '');
 
-      // Consultar perfil guardado en backend para conservar rol del docente
+      // Consultar perfil guardado en backend para conservar rol y nivel del diagnóstico
       let userRol = 'estudiante';
+      let nivelPorMateria = null;
+      let diagnosticoHecho = false;
       try {
         const perfilRes = await fetch(`${SYNAPSE_CONFIG.API_BASE}/auth/perfil/${firebaseUser.uid}`, {
           headers: { 'Authorization': `Bearer ${idToken}` }
@@ -86,18 +88,25 @@ async function handleLogin(event) {
         if (perfilRes.ok) {
           const perfilData = await perfilRes.json();
           if (perfilData.rol) userRol = perfilData.rol;
+          if (perfilData.nivelPorMateria) nivelPorMateria = perfilData.nivelPorMateria;
+          if (perfilData.diagnosticoHecho) diagnosticoHecho = perfilData.diagnosticoHecho;
         }
       } catch (e) {
-        userRol = loadLocal('user')?.rol || 'estudiante';
+        const prevUser = loadLocal('user') || {};
+        userRol = prevUser.rol || 'estudiante';
+        nivelPorMateria = prevUser.nivelPorMateria || null;
+        diagnosticoHecho = prevUser.diagnosticoHecho || false;
       }
 
       const user = {
-        uid:            firebaseUser.uid,
-        nombre:         firebaseUser.displayName || email.split('@')[0],
-        email:          firebaseUser.email,
-        foto:           firebaseUser.photoURL,
-        rol:            userRol,
-        nivelEducativo: 'secundaria',
+        uid:              firebaseUser.uid,
+        nombre:           firebaseUser.displayName || email.split('@')[0],
+        email:            firebaseUser.email,
+        foto:             firebaseUser.photoURL,
+        rol:              userRol,
+        nivelEducativo:   'secundaria',
+        nivelPorMateria:  nivelPorMateria,
+        diagnosticoHecho: diagnosticoHecho
       };
 
       saveLocal('user', user);

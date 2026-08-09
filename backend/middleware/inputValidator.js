@@ -106,11 +106,14 @@ function validarMensajeTutoria(req, res, next) {
   }
 
   // ── Sanitizar datos del estudiante ──
+  const NIVELES_DOMINIO = ['Básico', 'Intermedio', 'Avanzado'];
   const estudianteLimpio = {
     uid:            sanitizarTexto(estudiante?.uid || '', 100),
     nombre:         sanitizarTexto(estudiante?.nombre || 'Estudiante', 100),
     nivelEducativo: ['primaria', 'secundaria', 'preparatoria', 'universidad']
                       .includes(estudiante?.nivelEducativo) ? estudiante.nivelEducativo : 'secundaria',
+    // nivelDominio viene del diagnóstico y personaliza la dificultad del tutor
+    nivelDominio:   NIVELES_DOMINIO.includes(estudiante?.nivelDominio) ? estudiante.nivelDominio : null,
     materiaActual:  sanitizarTexto(estudiante?.materiaActual || 'General', 100),
     grupoId:        sanitizarTexto(estudiante?.grupoId || 'general', 100)
   };

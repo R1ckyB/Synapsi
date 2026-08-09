@@ -16,7 +16,7 @@ const { verificarToken } = require('../middleware/authMiddleware');
 router.post('/registro', verificarToken, async (req, res) => {
   try {
     const uid = req.usuario.uid; // Usar el UID verificado del token
-    const { nombre, email, rol, nivelEducativo } = req.body;
+    const { nombre, email, rol, nivelEducativo, nivelPorMateria } = req.body;
 
     const db = getDb();
     let finalRol = 'estudiante';
@@ -40,6 +40,21 @@ router.post('/registro', verificarToken, async (req, res) => {
         nivelEducativo: nivelEducativo || 'secundaria',
         fechaRegistro: docSnap.exists ? docSnap.data().fechaRegistro : new Date().toISOString()
       };
+
+      // Persistir nivelPorMateria si viene del diagnóstico (merge seguro, campo por campo)
+      if (nivelPorMateria && typeof nivelPorMateria === 'object') {
+        const NIVELES_VALIDOS = ['Básico', 'Intermedio', 'Avanzado'];
+        const nivelLimpio = {};
+        for (const [materia, nivel] of Object.entries(nivelPorMateria)) {
+          if (typeof materia === 'string' && materia.length <= 50 && NIVELES_VALIDOS.includes(nivel)) {
+            nivelLimpio[materia] = nivel;
+          }
+        }
+        if (Object.keys(nivelLimpio).length > 0) {
+          userData.nivelPorMateria = nivelLimpio;
+          userData.diagnosticoHecho = true;
+        }
+      }
 
       await userRef.set(userData, { merge: true });
       return res.json({ exito: true, mensaje: 'Usuario registrado correctamente', usuario: userData });
