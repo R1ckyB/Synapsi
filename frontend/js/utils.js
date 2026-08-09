@@ -10,7 +10,7 @@ function showToast(msg, type = 'info', duration = 3500) {
 
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+  toast.innerHTML = `<span>${icons[type]}</span><span>${escapeHtml(msg)}</span>`;
   container.appendChild(toast);
 
   setTimeout(() => {
@@ -64,8 +64,10 @@ async function apiGet(endpoint) {
 }
 
 async function apiPostForm(endpoint, formData) {
+  const authHeader = await obtenerAuthHeader();
   const res = await fetch(`${SYNAPSE_CONFIG.API_BASE}${endpoint}`, {
     method: 'POST',
+    headers: { ...authHeader },
     body: formData
   });
   const data = await res.json();

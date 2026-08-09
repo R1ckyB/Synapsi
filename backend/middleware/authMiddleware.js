@@ -73,16 +73,11 @@ async function verificarToken(req, res, next) {
 
     return next();
   } catch (error) {
-    console.warn(`⚠️ Token de Firebase no verificado (${error.message}). Usando usuario invitado.`);
-    
-    // Fallback suave: no bloquear peticiones de la IA si el token caducó o es de sesión web rápida
-    req.usuario = {
-      uid: 'invited-user',
-      email: 'invitado@synapse.edu',
-      nombre: 'Estudiante',
-      rol: 'estudiante'
-    };
-    return next();
+    console.warn(`⚠️ Token de Firebase no verificado (${error.message}). Rechazando petición 401.`);
+    return res.status(401).json({
+      error: true,
+      mensaje: 'Token de sesión inválido o expirado. Por favor inicia sesión nuevamente.'
+    });
   }
 }
 

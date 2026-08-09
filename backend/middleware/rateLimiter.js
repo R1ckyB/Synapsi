@@ -17,12 +17,13 @@ const COLECCION = 'rate_limits';
 /**
  * Limpia entradas expiradas del caché local cada 5 minutos.
  */
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const ahora = Date.now();
   for (const [clave, datos] of cacheLocal.entries()) {
     if (ahora > datos.resetAt) cacheLocal.delete(clave);
   }
 }, 5 * 60 * 1000);
+if (cleanupInterval.unref) cleanupInterval.unref();
 
 /**
  * Obtiene o inicializa el contador para una clave (ip + endpoint).

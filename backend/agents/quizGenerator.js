@@ -18,7 +18,20 @@ function parsearJSONSeguro(textoRaw) {
       .replace(/```json/gi, '')
       .replace(/```/gi, '')
       .trim();
-    return JSON.parse(textoLimpio);
+    const parsed = JSON.parse(textoLimpio);
+
+    // FIX: Garantizar que cada pregunta tenga ambos campos para compatibilidad
+    if (parsed && Array.isArray(parsed.preguntas)) {
+      parsed.preguntas.forEach(p => {
+        if (typeof p.respuestaCorrectaIndex === 'number' && typeof p.respuestaCorrecta === 'undefined') {
+          p.respuestaCorrecta = p.respuestaCorrectaIndex;
+        } else if (typeof p.respuestaCorrecta === 'number' && typeof p.respuestaCorrectaIndex === 'undefined') {
+          p.respuestaCorrectaIndex = p.respuestaCorrecta;
+        }
+      });
+    }
+
+    return parsed;
   } catch (err) {
     require('../utils/logger').error('Error parseando JSON de Gemini:', { textoRaw: textoRaw.slice(0, 200), err: err.message });
     // FIX #6 — Lanzar error tipado para que el retry lo capture

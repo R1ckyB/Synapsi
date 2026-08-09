@@ -8,8 +8,18 @@ const router = express.Router();
 const multer = require('multer');
 const { procesarAudioDuda } = require('../agents/audioProcessor');
 
-// Almacenamiento en memoria para procesamiento rápido sin disco
-const upload = multer({ storage: multer.memoryStorage() });
+// Almacenamiento en memoria con límite de 10MB y filtro de tipo MIME
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype && (file.mimetype.startsWith('audio/') || file.mimetype.includes('webm') || file.mimetype.includes('ogg') || file.mimetype.includes('mp4'))) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido. Solo se permiten archivos de audio.'), false);
+    }
+  }
+});
 
 /**
  * POST /api/audio/procesar

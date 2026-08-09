@@ -66,8 +66,8 @@ app.use('/api/webhook', express.urlencoded({ extended: true, limit: '50kb' }), w
 app.use('/api/audio',      express.json({ limit: '10mb' }),  limiterIA, verificarToken, audioRouter);
 app.use('/api/imagen',     express.json({ limit: '10mb' }),  limiterIA, verificarToken, imagenRouter);
 // El resto con límite estricto de texto
-app.use('/api/tutoria',    express.json({ limit: '50kb' }),  limiterIA,       verificarToken,    validarMensajeTutoria, tutoriaRouter);
-app.use('/api/quizzes',    express.json({ limit: '50kb' }),  limiterQuiz,     verificarToken,    validarGenerarQuiz,    quizzesRouter);
+app.use('/api/tutoria',    express.json({ limit: '50kb' }),  limiterIA,       verificarToken,    tutoriaRouter);
+app.use('/api/quizzes',    express.json({ limit: '50kb' }),  limiterQuiz,     verificarToken,    quizzesRouter);
 app.use('/api/profesores', express.json({ limit: '50kb' }),  limiterProfesor, verificarProfesor, profesoresRouter);
 
 // Endpoint de verificación de salud

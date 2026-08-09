@@ -8,13 +8,14 @@ const router = express.Router();
 const { procesarMensajeTutor } = require('../agents/tutorSocratico');
 const { generarQuizAdaptativo } = require('../agents/quizGenerator');
 const { guardarSesionTutoria } = require('../agents/vaciosService');
+const { validarMensajeTutoria } = require('../middleware/inputValidator');
 
 /**
  * POST /api/tutoria/mensaje
  * Recibe la duda del estudiante y retorna la guía socrática de Synapse.
  * Persiste la interacción en Firestore y dispara quizzes automáticos cuando corresponde.
  */
-router.post('/mensaje', async (req, res) => {
+router.post('/mensaje', validarMensajeTutoria, async (req, res) => {
   try {
     const { mensaje, estudiante, historial } = req.body;
 
@@ -23,8 +24,8 @@ router.post('/mensaje', async (req, res) => {
     }
 
     const datosEstudiante = {
-      uid: estudiante?.uid || 'anonimo',
-      nombre: estudiante?.nombre || 'Estudiante',
+      uid: req.usuario?.uid || estudiante?.uid || 'anonimo',
+      nombre: estudiante?.nombre || req.usuario?.nombre || 'Estudiante',
       nivelEducativo: estudiante?.nivelEducativo || 'secundaria',
       materiaActual: estudiante?.materiaActual || 'General',
       grupoId: estudiante?.grupoId || 'general'

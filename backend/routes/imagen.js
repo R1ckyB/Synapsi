@@ -9,10 +9,17 @@ const multer = require('multer');
 const { procesarImagenCuaderno } = require('../agents/tutorSocratico');
 const { explicarImagenEducativa } = require('../agents/imageAnalyzer');
 
-// Almacenamiento en memoria para procesamiento rápido
+// Almacenamiento en memoria con límite de 10MB y validación de tipo MIME
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // Límite 10MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // Límite 10MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido. Solo se permiten imágenes (JPEG, PNG, WEBP).'), false);
+    }
+  }
 });
 
 /**

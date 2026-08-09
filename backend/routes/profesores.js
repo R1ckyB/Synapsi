@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { obtenerVaciosGrupo, obtenerVaciosEstudiante } = require('../agents/vaciosService');
-const { getFirestore } = require('../config/firebase');
+const { getDb } = require('../config/firebase');
 
 /** Genera un código de grupo único de 6 caracteres alfanuméricos */
 function generarCodigo() {
@@ -23,7 +23,7 @@ function generarCodigo() {
  */
 router.post('/grupos', async (req, res) => {
   try {
-    const db = getFirestore();
+    const db = getDb();
     const profesorId = req.usuario?.uid;
     const { nombreGrupo = 'Mi Grupo' } = req.body;
 
@@ -67,7 +67,7 @@ router.post('/grupos', async (req, res) => {
  */
 router.post('/grupos/unirse', async (req, res) => {
   try {
-    const db = getFirestore();
+    const db = getDb();
     const estudianteId = req.usuario?.uid;
     const { codigo } = req.body;
 
@@ -106,7 +106,7 @@ router.post('/grupos/unirse', async (req, res) => {
  */
 router.get('/grupos', async (req, res) => {
   try {
-    const db = getFirestore();
+    const db = getDb();
     const profesorId = req.usuario?.uid;
 
     const snap = await db.collection('grupos')
@@ -175,7 +175,7 @@ router.get('/vacios/estudiante/:uid', async (req, res) => {
  */
 router.patch('/perfil', async (req, res) => {
   try {
-    const db = getFirestore();
+    const db = getDb();
     const profesorId = req.usuario?.uid;
     const { materias = [] } = req.body;
 
@@ -198,7 +198,7 @@ router.patch('/perfil', async (req, res) => {
  */
 router.patch('/grupos/:codigo', async (req, res) => {
   try {
-    const db = getFirestore();
+    const db = getDb();
     const { codigo } = req.params;
     const { nombre } = req.body;
 
@@ -219,7 +219,7 @@ router.patch('/grupos/:codigo', async (req, res) => {
  */
 router.delete('/grupos/:codigo/alumnos/:uid', async (req, res) => {
   try {
-    const db = getFirestore();
+    const db = getDb();
     const { codigo, uid } = req.params;
 
     if (db) {
@@ -245,7 +245,7 @@ router.delete('/grupos/:codigo/alumnos/:uid', async (req, res) => {
  */
 router.post('/anuncios', async (req, res) => {
   try {
-    const db = getFirestore();
+    const db = getDb();
     const profesorId = req.usuario?.uid;
     const { grupoId, titulo, contenido } = req.body;
 
@@ -280,7 +280,7 @@ router.post('/anuncios', async (req, res) => {
  */
 router.get('/anuncios/:grupoId', async (req, res) => {
   try {
-    const db = getFirestore();
+    const db = getDb();
     const { grupoId } = req.params;
 
     if (!db) return res.json({ exito: true, anuncios: [] });
@@ -304,7 +304,7 @@ router.get('/anuncios/:grupoId', async (req, res) => {
  */
 router.get('/alumnos/:uid', async (req, res) => {
   try {
-    const db = getFirestore();
+    const db = getDb();
     const { uid } = req.params;
 
     const vacios = await obtenerVaciosEstudiante(uid);

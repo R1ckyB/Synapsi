@@ -109,9 +109,9 @@ function renderQuestion() {
 
 /* ── SELECT ANSWER ───────────────────────────────────────── */
 function selectQuizAnswer(chosenIdx, question) {
-  const correctIdx = typeof question.respuestaCorrecta === 'number'
-    ? question.respuestaCorrecta
-    : (question.opciones || []).findIndex((_, i) => i === 0); // fallback 0
+  const correctIdx = typeof question.respuestaCorrectaIndex === 'number'
+    ? question.respuestaCorrectaIndex
+    : (typeof question.respuestaCorrecta === 'number' ? question.respuestaCorrecta : 0);
 
   const isCorrect = chosenIdx === correctIdx;
 

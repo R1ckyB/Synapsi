@@ -6,12 +6,13 @@
 const express = require('express');
 const router = express.Router();
 const { generarQuizAdaptativo, generarQuizPorVacios, evaluarQuiz } = require('../agents/quizGenerator');
+const { validarGenerarQuiz } = require('../middleware/inputValidator');
 
 /**
  * POST /api/quizzes/generar
  * Genera un quiz adaptativo en formato JSON.
  */
-router.post('/generar', async (req, res) => {
+router.post('/generar', validarGenerarQuiz, async (req, res) => {
   try {
     const { tema, nivelEducativo, numPreguntas, dificultad, vaciosDetectados } = req.body;
     if (!tema) return res.status(400).json({ error: true, mensaje: 'Debes proporcionar un tema para el quiz.' });
