@@ -325,7 +325,27 @@ router.get('/anuncios/:grupoId', async (req, res) => {
 router.get('/alumnos/:uid', verificarProfesor, async (req, res) => {
   try {
     const db = getDb();
+    const profesorId = req.usuario?.uid;
     const { uid } = req.params;
+
+    if (db) {
+      // Verificar que el alumno pertenezca a algún grupo creado por este profesor
+      const gruposProfesor = await db.collection('grupos')
+        .where('profesorId', '==', profesorId)
+        .get();
+
+      const perteneceAProfesor = gruposProfesor.docs.some(doc => {
+        const alumnos = doc.data().alumnos || [];
+        return alumnos.includes(uid);
+      });
+
+      if (!perteneceAProfesor && gruposProfesor.size > 0) {
+        return res.status(403).json({
+          error: true,
+          mensaje: 'No tienes permiso para consultar el expediente de este estudiante.'
+        });
+      }
+    }
 
     const vacios = await obtenerVaciosEstudiante(uid);
 

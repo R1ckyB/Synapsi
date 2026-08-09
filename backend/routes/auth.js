@@ -27,8 +27,9 @@ router.post('/registro', verificarToken, async (req, res) => {
       if (docSnap.exists && docSnap.data().rol) {
         // Preservar rol existente para prevenir escalación arbitraria de privilegios
         finalRol = docSnap.data().rol;
-      } else if (rol === 'profesor' || rol === 'estudiante') {
-        finalRol = rol;
+      } else {
+        // En primer registro, solo asignar 'profesor' si el token verificado de Firebase lo confirma
+        finalRol = (req.usuario.rol === 'profesor' || req.usuario.rol === 'admin') ? req.usuario.rol : 'estudiante';
       }
 
       const userData = {
