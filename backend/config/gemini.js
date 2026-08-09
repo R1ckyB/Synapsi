@@ -109,7 +109,7 @@ async function chatConHistorial(systemPrompt, historial = [], nuevoMensaje = '')
 
     const result = await modelInstance.generateContent({
       contents,
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+      generationConfig: { temperature: 0.7, maxOutputTokens: 900 }
     });
     return result.response.text();
   });

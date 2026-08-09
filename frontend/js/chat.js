@@ -37,13 +37,16 @@ async function sendMessage(customMsg) {
   if (statusEl) statusEl.textContent = 'Pensando... 🧠';
 
   try {
+    const materiaActual = state.materiaActual || 'General';
+    const nivelDominio = user.nivelPorMateria?.[materiaActual] || null;
     const payload = {
       mensaje: msg,
       estudiante: {
         uid:            user.uid || 'anonimo',
         nombre:         user.nombre || 'Estudiante',
         nivelEducativo: user.nivelEducativo || 'secundaria',
-        materiaActual:  state.materiaActual || 'General',
+        nivelDominio:   nivelDominio,        // resultado del diagnóstico
+        materiaActual:  materiaActual,
         grupoId:        user.grupoId || 'general'
       },
       historial: state.historial.slice(-10)  // últimas 10 interacciones

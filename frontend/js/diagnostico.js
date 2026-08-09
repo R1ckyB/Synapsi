@@ -170,30 +170,72 @@ async function finalizarExamenDiagnostico() {
     user.diagnosticoHecho = true;
     saveLocal('user', user);
 
-    const html = `
-      <div style="text-align:center;padding:var(--sp-md)">
-        <div style="font-size:3rem;margin-bottom:var(--sp-xs)">🏆</div>
-        <h3 style="font-weight:800;font-size:1.3rem;margin-bottom:4px">¡Diagnóstico Completado!</h3>
-        <p style="color:var(--clr-text-muted);font-size:0.9rem;margin-bottom:var(--sp-lg)">
-          Puntuación: <b>${resultado.correctas} de ${resultado.totalPreguntas} (${resultado.porcentaje}%)</b>
-        </p>
+    // Sincronizar nivel con el backend (sin bloquear si falla)
+    apiPost('/auth/registro', {
+      uid: user.uid,
+      nivelPorMateria: user.nivelPorMateria
+    }).catch(() => {});
 
-        <div style="background:var(--clr-bg-2);border:2px solid var(--clr-primary);border-radius:var(--r-xl);padding:var(--sp-lg);margin-bottom:var(--sp-lg)">
-          <div style="font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--clr-text-muted)">Tu nivel asignado en ${materiaDiagnostico}</div>
-          <div style="font-size:2rem;font-weight:900;color:var(--clr-primary-l);margin-top:4px">${nivelAsignado}</div>
+    // Generar sugerencias "Qué estudiar ahora" según nivel
+    const sugerencias = {
+      'Básico': [
+        { emoji: '📖', texto: `Conceptos fundamentales de ${materiaDiagnostico}` },
+        { emoji: '✏️', texto: 'Ejercicios guiados paso a paso con el tutor' },
+        { emoji: '🎯', texto: 'Quiz de 3 preguntas básicas para practicar' }
+      ],
+      'Intermedio': [
+        { emoji: '💡', texto: `Aplicaciones prácticas de ${materiaDiagnostico}` },
+        { emoji: '🔗', texto: 'Conexiones con otros conceptos que ya conoces' },
+        { emoji: '🎯', texto: 'Quiz de nivel intermedio para reforzar' }
+      ],
+      'Avanzado': [
+        { emoji: '⚡', texto: `Problemas desafiantes de ${materiaDiagnostico}` },
+        { emoji: '🧠', texto: 'Explica un concepto al tutor (Técnica Feynman)' },
+        { emoji: '🎯', texto: 'Quiz avanzado para confirmar tu dominio' }
+      ]
+    };
+    const temas = sugerencias[nivelAsignado] || sugerencias['Intermedio'];
+
+    const nivelEmoji = nivelAsignado === 'Avanzado' ? '🏆' : nivelAsignado === 'Intermedio' ? '💪' : '🌱';
+    const nivelColor = nivelAsignado === 'Avanzado' ? 'var(--clr-accent)' : nivelAsignado === 'Intermedio' ? 'var(--clr-primary-l)' : '#06d6a0';
+
+    container.innerHTML = `
+      <div style="padding:var(--sp-md)">
+        <div style="text-align:center;margin-bottom:var(--sp-lg)">
+          <div style="font-size:3rem;margin-bottom:var(--sp-xs)">${nivelEmoji}</div>
+          <h3 style="font-weight:800;font-size:1.3rem;margin-bottom:4px">¡Diagnóstico Completado!</h3>
+          <p style="color:var(--clr-text-muted);font-size:0.9rem">
+            Puntuación: <b>${resultado.correctas} de ${resultado.totalPreguntas} (${resultado.porcentaje}%)</b>
+          </p>
         </div>
 
-        <p style="font-size:0.85rem;color:var(--clr-text-muted);margin-bottom:var(--sp-lg)">
-          El tutor socrático ahora adaptará automáticamente la dificultad de las explicaciones a tu nivel de <b>${nivelAsignado}</b> en ${materiaDiagnostico}.
-        </p>
+        <div style="background:var(--clr-bg-2);border:2px solid ${nivelColor};border-radius:var(--r-xl);padding:var(--sp-lg);margin-bottom:var(--sp-lg);text-align:center">
+          <div style="font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--clr-text-muted)">Tu nivel en ${materiaDiagnostico}</div>
+          <div style="font-size:2rem;font-weight:900;color:${nivelColor};margin-top:4px">${nivelAsignado}</div>
+        </div>
 
-        <button class="btn btn-primary" style="width:100%" onclick="cerrarModalDiagnostico()">
-          🚀 Continuar a mi Estudio
+        <div style="margin-bottom:var(--sp-lg)">
+          <div style="font-size:0.85rem;font-weight:700;margin-bottom:var(--sp-sm);color:var(--clr-text-muted);text-transform:uppercase;letter-spacing:0.5px">
+            📊 Qué estudiar ahora
+          </div>
+          ${temas.map(t => `
+            <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:10px 14px;background:var(--clr-bg-2);border-radius:var(--r-md);margin-bottom:6px;font-size:0.88rem">
+              <span style="font-size:1.2rem">${t.emoji}</span>
+              <span>${escapeHtml(t.texto)}</span>
+            </div>
+          `).join('')}
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px"
+          onclick="cerrarModalDiagnostico();showView('chat');sendMessage('Quiero estudiar ${materiaDiagnostico} a nivel ${nivelAsignado}')"
+          id="btn-ir-tutor-diag">
+          🧠 Ir al tutor ahora
+        </button>
+        <button class="btn btn-ghost" style="width:100%;font-size:0.85rem" onclick="cerrarModalDiagnostico()">
+          Cerrar
         </button>
       </div>
     `;
-
-    container.innerHTML = html;
     showToast(`Diagnóstico en ${materiaDiagnostico}: ${nivelAsignado} 🎉`, 'success', 4000);
   } catch (err) {
     showToast('Diagnóstico completado localmente 🎉', 'success');
@@ -207,11 +249,11 @@ async function cargarAnunciosEstudiante() {
   if (!container) return;
 
   const user = loadLocal('user') || {};
-  const grupoId = user.grupoId || 'general';
+  const grupoId = user.grupoId;
+  if (!grupoId || grupoId === 'general') return; // sin grupo real asignado, no cargar
 
   try {
-    const res = await fetch(`/api/profesores/anuncios/${grupoId}`);
-    const data = await res.json();
+    const data = await apiGet(`/profesores/anuncios/${grupoId}`);
 
     if (data.exito && data.anuncios && data.anuncios.length > 0) {
       const a = data.anuncios[0];
@@ -225,7 +267,7 @@ async function cargarAnunciosEstudiante() {
         </div>
       `;
     }
-  } catch (err) { /* ignore */ }
+  } catch (err) { /* ignorar error si no hay anuncios o sin grupo */ }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -110,6 +110,12 @@ function initDashboard() {
   // Cargar datos reales del perfil desde la API
   cargarDatosPerfil(user);
 
+  // Si el alumno aún no hizo el diagnóstico, mostrar banner CTA destacado
+  if (!user.diagnosticoHecho) {
+    const diagBanner = document.getElementById('diag-cta-banner');
+    if (diagBanner) diagBanner.style.display = '';
+  }
+
   console.log('🧠 Synapse Dashboard v2.1 — Usuario:', user.nombre);
 }
 
@@ -239,31 +245,45 @@ function renderMateriasView() {
   const grid = document.getElementById('materias-grid');
   if (!grid) return;
 
-  const materias = [
-    { name: 'Matemáticas', emoji: '📐', pct: 65, temas: ['Álgebra', 'Geometría', 'Trigonometría'], color: '#6c63ff' },
-    { name: 'Física',       emoji: '⚛️', pct: 40, temas: ['Mecánica', 'Termodinámica', 'Ondas'], color: '#00d9b1' },
-    { name: 'Historia',     emoji: '📜', pct: 80, temas: ['México', 'Mundo Antiguo', 'Contemporánea'], color: '#ffd166' },
-    { name: 'Química',      emoji: '🧪', pct: 25, temas: ['Tabla Periódica', 'Reacciones', 'Estequiometría'], color: '#ff6b6b' },
-    { name: 'Biología',     emoji: '🧬', pct: 55, temas: ['Célula', 'Genética', 'Ecosistemas'], color: '#06d6a0' },
-    { name: 'Español',      emoji: '✍️', pct: 70, temas: ['Redacción', 'Literatura', 'Gramática'], color: '#a0a8c8' },
+  const materiasDef = [
+    { name: 'Matemáticas', emoji: '📐', temas: ['Álgebra', 'Geometría', 'Trigonometría'], color: '#6c63ff' },
+    { name: 'Física',       emoji: '⚛️', temas: ['Mecánica', 'Termodinámica', 'Ondas'], color: '#00d9b1' },
+    { name: 'Historia',     emoji: '📜', temas: ['México', 'Mundo Antiguo', 'Contemporánea'], color: '#ffd166' },
+    { name: 'Química',      emoji: '🧪', temas: ['Tabla Periódica', 'Reacciones', 'Estequiometría'], color: '#ff6b6b' },
+    { name: 'Biología',     emoji: '🧬', temas: ['Célula', 'Genética', 'Ecosistemas'], color: '#06d6a0' },
+    { name: 'Español',      emoji: '✍️', temas: ['Redacción', 'Literatura', 'Gramática'], color: '#a0a8c8' },
   ];
 
-  grid.innerHTML = materias.map(m => `
-    <div class="vacio-card" onclick="cambiarMateria('${m.name}');showView('chat')" style="cursor:pointer">
-      <div style="display:flex;align-items:center;gap:var(--sp-sm);margin-bottom:var(--sp-md)">
-        <span style="font-size:1.8rem">${m.emoji}</span>
-        <div>
-          <div class="vacio-topic">${m.name}</div>
-          <div style="font-size:0.75rem;color:var(--clr-text-3)">${m.temas.join(' · ')}</div>
+  // Mapa de nivel diagnóstico a porcentaje visual de dominio
+  const nivelAPct = { 'Avanzado': 90, 'Intermedio': 60, 'Básico': 25 };
+  const user = loadLocal('user') || {};
+  const nivelPorMateria = user.nivelPorMateria || {};
+
+  grid.innerHTML = materiasDef.map(m => {
+    const nivelNombre = nivelPorMateria[m.name];
+    const pct = nivelNombre ? nivelAPct[nivelNombre] : null;
+    const badge = nivelNombre
+      ? `<span style="font-size:0.7rem;padding:2px 8px;background:var(--clr-bg-3);border-radius:99px;color:var(--clr-text-muted);margin-left:auto">${nivelNombre}</span>`
+      : `<span style="font-size:0.7rem;padding:2px 8px;background:var(--clr-bg-3);border-radius:99px;color:var(--clr-text-3);margin-left:auto;cursor:pointer" onclick="event.stopPropagation();abrirModalDiagnostico()">Sin diagnóstico</span>`;
+    const barContent = pct !== null
+      ? `<div class="progress-fill" style="width:${pct}%;background:linear-gradient(90deg,${m.color},var(--clr-accent))"></div>`
+      : `<div class="progress-fill" style="width:8%;background:var(--clr-border);opacity:0.4"></div>`;
+    return `
+      <div class="vacio-card" onclick="cambiarMateria('${m.name}');showView('chat')" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:var(--sp-sm);margin-bottom:var(--sp-md)">
+          <span style="font-size:1.8rem">${m.emoji}</span>
+          <div>
+            <div class="vacio-topic">${m.name}</div>
+            <div style="font-size:0.75rem;color:var(--clr-text-3)">${m.temas.join(' · ')}</div>
+          </div>
+          ${badge}
         </div>
-        <span class="materia-pct" style="margin-left:auto">${m.pct}%</span>
-      </div>
-      <div class="progress-track"><div class="progress-fill" style="width:${m.pct}%;background:linear-gradient(90deg,${m.color},var(--clr-accent))"></div></div>
-      <div style="margin-top:var(--sp-md)">
-        <button class="btn btn-ghost btn-sm" style="width:100%;font-size:0.8rem">💬 Estudiar ahora →</button>
-      </div>
-    </div>`
-  ).join('');
+        <div class="progress-track">${barContent}</div>
+        <div style="margin-top:var(--sp-md)">
+          <button class="btn btn-ghost btn-sm" style="width:100%;font-size:0.8rem">💬 Estudiar ahora →</button>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 /* ── HELPERS ─────────────────────────────────────────────── */

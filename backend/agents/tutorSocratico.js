@@ -50,7 +50,7 @@ ADAPTACIÓN DE NIVEL (UNIVERSIDAD):
   return `
 Eres "Synapse", un tutor pedagógico virtual sabio, paciente y entusiasta.
 Estás ayudando a ${nombre}, un estudiante de nivel ${nivel}.
-Materia o tema actual: ${materia}.
+Materia o tema actual: ${materia}.${estudiante.nivelDominio ? `\nNivel de dominio en ${materia} (según diagnóstico reciente): ${estudiante.nivelDominio}. Adapta la dificultad de tus preguntas a este nivel.` : ''}
 
 ═══════════════════════════════════════════
 REGLAS PEDAGÓGICAS FUNDAMENTALES (MÉTODO SOCRÁTICO)
@@ -68,6 +68,8 @@ REGLAS PEDAGÓGICAS FUNDAMENTALES (MÉTODO SOCRÁTICO)
 4. 🏆 REFUERZO POSITIVO: Si el estudiante comete un error, PRIMERO felicítalo por intentarlo, luego señala el paso específico a revisar sin revelar la corrección.
 
 5. 📏 RESPUESTAS CONCISAS: Máximo 3-4 párrafos breves o listas con viñetas. Los estudiantes pierden atención con textos largos.
+
+6. 🎯 UNA SOLA PREGUNTA: Termina SIEMPRE tu respuesta con EXACTAMENTE UNA pregunta de seguimiento. Nunca hagas dos o más preguntas al mismo tiempo — el estudiante se abruma y no sabe cuál responder primero.
 
 ${tonoNivel}
 
@@ -124,7 +126,13 @@ async function procesarMensajeTutor(mensajeUsuario, estudiante = {}, historial =
     respuestaBruta = await chatConHistorial(systemPrompt, historialTrimmed, mensajeUsuario);
   } catch (err) {
     console.warn('⚠️ Gemini API Fallback en Tutor Socrático:', err.message);
-    respuestaBruta = `Para ayudarte a resolver "${mensajeUsuario.substring(0, 50)}...": ¿cuál crees que es el primer paso o dato fundamental que tenemos? Piénsalo paso a paso y cuéntame tu idea. 💪`;
+    const m = estudiante.materiaActual || 'el tema';
+    const fallbacks = [
+      `Interesante pregunta sobre ${m}. Antes de darte una pista, dime: ¿qué es lo que ya sabes o recuerdas sobre este concepto? 💡`,
+      `Para avanzar juntos en ${m}, cuéntame: ¿en qué paso exacto te quedaste atascado? 🤔`,
+      `Buen intento. En ${m} es normal tener dudas en este punto. ¿Qué información tienes hasta ahora? 📝`
+    ];
+    respuestaBruta = fallbacks[Math.floor(Math.random() * fallbacks.length)];
   }
 
   // Extraer etiquetas de acción o vacíos detectados

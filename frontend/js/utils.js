@@ -182,6 +182,7 @@ function toggleUserMenu() {
 function handleLogout() {
   clearLocal('user');
   clearLocal('token');
+  clearLocal('idToken');
   clearLocal('historial');
   if (window.firebase && firebase.auth) {
     try { firebase.auth().signOut(); } catch (e) {}

@@ -193,6 +193,24 @@ function showQuizResult() {
   const statQuiz = document.getElementById('stat-quizzes');
   if (statQuiz) statQuiz.textContent = window.SynapseState.quizCorrects;
 
+  // Persist result in localStorage history
+  try {
+    const historialQuizzes = loadLocal('historialQuizzes') || [];
+    historialQuizzes.push({
+      fecha: new Date().toISOString(),
+      tema:  _quiz.preguntas[0]?.tema || window.SynapseState.materiaActual || 'General',
+      total,
+      correctas,
+      pct
+    });
+    // Mantener solo los últimos 30 resultados
+    if (historialQuizzes.length > 30) historialQuizzes.splice(0, historialQuizzes.length - 30);
+    saveLocal('historialQuizzes', historialQuizzes);
+    // Actualizar contador acumulado de temas reforzados en estado
+    window.SynapseState.quizTotal = historialQuizzes.reduce((s, q) => s + q.total, 0);
+    window.SynapseState.quizCorrects = historialQuizzes.reduce((s, q) => s + q.correctas, 0);
+  } catch (e) { /* ignorar si falla */ }
+
   // Persist session score (opcional)
   showToast(`Quiz completado: ${pct}% ✨`, pct >= 60 ? 'success' : 'info');
 }
