@@ -122,7 +122,7 @@ app.use((err, req, res, next) => {
   logger.error('Error no controlado', { error: err.message, ruta: req.path, uid: req.usuario?.uid });
   res.status(err.status || 500).json({
     error: true,
-    mensaje: process.env.NODE_ENV === 'development' ? err.message : 'Error interno del servidor'
+    mensaje: err.mensaje || err.message || 'Error interno del servidor'
   });
 });
 

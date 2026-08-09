@@ -49,9 +49,9 @@ async function verificarToken(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
-  // Si no hay token o es un token demo, solo permitir si ALLOW_DEMO_AUTH=true
+  // Si no hay token o es un token demo, permitir en desarrollo o si ALLOW_DEMO_AUTH=true
   if (!token || token === 'demo-token' || token.startsWith('demo-')) {
-    if (process.env.ALLOW_DEMO_AUTH === 'true') {
+    if (process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEMO_AUTH === 'true') {
       req.usuario = {
         uid: 'demo-user',
         email: 'estudiante@synapse.edu',

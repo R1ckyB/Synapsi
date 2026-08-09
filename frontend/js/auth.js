@@ -132,13 +132,15 @@ function handleDemoLogin(email = 'demo@synapse.edu') {
     email,
     rol: email.includes('prof') ? 'profesor' : 'estudiante',
     nivelEducativo: 'secundaria',
-    grupoId: 'grupo-demo',
+    grupoId: 'DEMO12',
     materiaActual: 'Matemáticas',
     racha: 7,
     demo: true
   };
   saveLocal('user', demoUser);
-  showToast('🎭 Modo demo — sin backend', 'info', 2000);
+  saveLocal('token', 'demo-token');
+  saveLocal('idToken', 'demo-token');
+  showToast('🎭 Modo demo — sesión iniciada', 'info', 2000);
   setTimeout(() => {
     window.location.href = demoUser.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
   }, 800);
