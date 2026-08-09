@@ -324,3 +324,64 @@ function exportarReporte() {
 
 /* ── INIT ────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', initProfesor);
+
+/* ── GRUPOS / CÓDIGOS DE INVITACIÓN ─────────────────────── */
+function abrirModalGrupo() {
+  const modal = document.getElementById('modal-grupo');
+  if (!modal) return;
+  // Reset estado del modal
+  document.getElementById('modal-grupo-form').style.display = '';
+  document.getElementById('modal-grupo-codigo').style.display = 'none';
+  document.getElementById('input-nombre-grupo').value = '';
+  modal.style.display = 'flex';
+}
+
+function cerrarModalGrupo() {
+  const modal = document.getElementById('modal-grupo');
+  if (modal) modal.style.display = 'none';
+}
+
+async function crearGrupo() {
+  const nombreGrupo = document.getElementById('input-nombre-grupo').value.trim();
+  if (!nombreGrupo) { showToast('Escribe el nombre del grupo', 'error'); return; }
+
+  const btn = document.getElementById('btn-crear-grupo-submit');
+  const txt = document.getElementById('btn-crear-grupo-txt');
+  const spin = document.getElementById('btn-crear-grupo-spin');
+  btn.disabled = true;
+  txt.textContent = 'Creando...';
+  spin.classList.remove('hidden');
+
+  try {
+    const token = loadLocal('token') || '';
+    const res = await fetch('/api/profesores/grupos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ nombreGrupo })
+    });
+    const data = await res.json();
+
+    if (!data.exito) throw new Error(data.mensaje || 'Error al crear grupo');
+
+    // Mostrar el código generado
+    document.getElementById('codigo-generado').textContent = data.codigo;
+    document.getElementById('nombre-grupo-generado').textContent = `Grupo: ${data.nombre}`;
+    document.getElementById('modal-grupo-form').style.display = 'none';
+    document.getElementById('modal-grupo-codigo').style.display = '';
+    showToast(`¡Grupo "${data.nombre}" creado! 🎉`, 'success');
+  } catch (err) {
+    showToast('Error al crear grupo: ' + err.message, 'error');
+    btn.disabled = false;
+    txt.textContent = '✨ Crear y generar código';
+    spin.classList.add('hidden');
+  }
+}
+
+function copiarCodigo() {
+  const codigo = document.getElementById('codigo-generado').textContent;
+  navigator.clipboard.writeText(codigo).then(() => {
+    showToast(`Código ${codigo} copiado 📋`, 'success');
+  }).catch(() => {
+    showToast('Código: ' + codigo, 'info');
+  });
+}

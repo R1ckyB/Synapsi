@@ -26,15 +26,17 @@ function switchTab(tab) {
   }
 }
 
-/* ── ROLE SELECTOR ──────────────────────────────────────── */
+/* ── ROLE SELECTOR ───────────────────────────────────────────── */
 function selectRole(role) {
   selectedRole = role;
   document.getElementById('role-estudiante').classList.toggle('selected', role === 'estudiante');
   document.getElementById('role-profesor').classList.toggle('selected', role === 'profesor');
 
-  // Hide nivel educativo for professors
+  // Ocultar nivel educativo y código de clase para profesores
   const nivelGrp = document.getElementById('nivel-group');
-  if (nivelGrp) nivelGrp.style.display = role === 'profesor' ? 'none' : 'flex';
+  const codigoGrp = document.getElementById('codigo-grupo-group');
+  if (nivelGrp)  nivelGrp.style.display  = role === 'profesor' ? 'none' : 'flex';
+  if (codigoGrp) codigoGrp.style.display = role === 'profesor' ? 'none' : 'flex';
 }
 
 /* ── NIVEL SELECTOR ─────────────────────────────────────── */
@@ -173,6 +175,27 @@ async function handleRegister(event) {
 
     saveLocal('user', user);
     saveLocal('token', idToken);
+
+    // Si el estudiante ingresó un código de clase, unirse al grupo automáticamente
+    const codigoGrupoInput = document.getElementById('reg-codigo-grupo');
+    const codigoGrupo = codigoGrupoInput ? codigoGrupoInput.value.trim().toUpperCase() : '';
+    if (selectedRole === 'estudiante' && codigoGrupo.length === 6) {
+      try {
+        const joinRes = await fetch('/api/profesores/grupos/unirse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({ codigo: codigoGrupo })
+        });
+        const joinData = await joinRes.json();
+        if (joinData.exito) {
+          // Actualizar localStorage con grupoId
+          user.grupoId = joinData.grupoId;
+          user.grupoNombre = joinData.grupoNombre;
+          saveLocal('user', user);
+          showToast(`Te uniste al grupo "${joinData.grupoNombre}" 🎓`, 'success', 3000);
+        }
+      } catch (e) { /* no bloquear registro si falla el grupo */ }
+    }
 
     showToast('¡Cuenta creada! Bienvenido a Synapse 🎉', 'success');
     setTimeout(() => {
