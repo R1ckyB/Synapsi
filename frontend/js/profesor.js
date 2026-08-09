@@ -226,13 +226,15 @@ function renderAlumnos() {
       'En riesgo':     'badge-warn',
     }[a.estado] || 'badge-primary';
 
+    const uid = a.uid || 'demo-' + a.nombre.replace(/\s+/g, '-').toLowerCase();
+
     return `
     <tr>
-      <td style="padding:12px var(--sp-md)">
+      <td style="padding:12px var(--sp-md);cursor:pointer" onclick="verFichaAlumno('${uid}', '${escapeHtml(a.nombre)}')">
         <div style="display:flex;align-items:center;gap:var(--sp-sm)">
           <div class="avatar avatar-sm">${getInitials(a.nombre)}</div>
           <div>
-            <div style="font-size:0.88rem;font-weight:600">${escapeHtml(a.nombre)}</div>
+            <div style="font-size:0.88rem;font-weight:600;color:var(--clr-primary-l)">${escapeHtml(a.nombre)}</div>
             <div style="font-size:0.72rem;color:var(--clr-text-3)">${escapeHtml(a.nivel)}</div>
           </div>
         </div>
@@ -249,6 +251,10 @@ function renderAlumnos() {
       <td style="padding:12px var(--sp-md)">
         <span class="badge ${estadoBadge}">${escapeHtml(a.estado)}</span>
       </td>
+      <td style="padding:12px var(--sp-md);text-align:right">
+        <button class="btn btn-ghost btn-sm" title="Ver ficha" onclick="verFichaAlumno('${uid}', '${escapeHtml(a.nombre)}')">👁️</button>
+        <button class="btn btn-ghost btn-sm" title="Eliminar del grupo" style="color:var(--clr-warn)" onclick="eliminarAlumnoDeGrupo('${uid}', '${escapeHtml(a.nombre)}')">🗑️</button>
+      </td>
     </tr>`;
   }).join('');
 
@@ -259,8 +265,9 @@ function renderAlumnos() {
           <tr style="border-bottom:1px solid var(--clr-border);background:rgba(255,255,255,0.03)">
             <th style="padding:12px var(--sp-md);text-align:left;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--clr-text-3)">Alumno</th>
             <th style="padding:12px var(--sp-md);text-align:left;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--clr-text-3)">Racha</th>
-            <th style="padding:12px var(--clr-md);text-align:left;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--clr-text-3)">Precisión Quiz</th>
+            <th style="padding:12px var(--sp-md);text-align:left;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--clr-text-3)">Precisión Quiz</th>
             <th style="padding:12px var(--sp-md);text-align:left;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--clr-text-3)">Estado</th>
+            <th style="padding:12px var(--sp-md);text-align:right;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--clr-text-3)">Acción</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

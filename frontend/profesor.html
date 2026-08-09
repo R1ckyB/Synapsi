@@ -39,12 +39,18 @@
         <button class="nav-item" id="nav-quizzes-prof" onclick="showView('quizzes-prof')">
           <span class="nav-icon">🧩</span> Quizzes del Grupo
         </button>
+        <button class="nav-item" id="nav-config" onclick="showView('config')">
+          <span class="nav-icon">⚙️</span> Mis Materias
+        </button>
       </div>
 
       <div class="sidebar-section">
         <p class="sidebar-section-title">Herramientas</p>
         <button class="nav-item" id="nav-exportar" onclick="exportarReporte()">
           <span class="nav-icon">📤</span> Exportar Reporte
+        </button>
+        <button class="nav-item" id="nav-crear-grupo" onclick="abrirModalGrupo()">
+          <span class="nav-icon">🔑</span> Crear Grupo
         </button>
         <a href="dashboard.html" class="nav-item">
           <span class="nav-icon">🎓</span> Vista Estudiante
@@ -170,7 +176,14 @@
 
         <!-- ── VIEW: ALUMNOS ──────────────────────────────── -->
         <section class="view" id="view-alumnos">
-          <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:var(--sp-xl)">👥 Mis Alumnos</h2>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-xl);flex-wrap:wrap;gap:var(--sp-md)">
+            <h2 style="font-size:1.3rem;font-weight:700;margin:0">👥 Mis Alumnos</h2>
+            <div style="display:flex;gap:var(--sp-sm);flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" onclick="abrirModalRenombrarGrupo()">✏️ Renombrar Grupo</button>
+              <button class="btn btn-ghost btn-sm" onclick="abrirModalAnuncio()">📢 Crear Anuncio</button>
+              <button class="btn btn-primary btn-sm" onclick="abrirModalAsignarQuiz()">🎯 Asignar Quiz</button>
+            </div>
+          </div>
           <div id="alumnos-table-wrap">
             <!-- JS populated -->
           </div>
@@ -182,6 +195,26 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--sp-md)" id="quizzes-prof-grid">
             <!-- JS populated -->
           </div>
+        <!-- ── VIEW: CONFIG (Mis Materias) ────────────────── -->
+        <section class="view" id="view-config">
+          <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:var(--sp-md)">⚙️ Materias que Imparto</h2>
+          <p style="color:var(--clr-text-muted);margin-bottom:var(--sp-xl)">Selecciona las asignaturas que enseñas para personalizar el análisis de vacíos y sugerencias pedagógicas.</p>
+
+          <div class="panel-card" style="max-width:600px">
+            <div style="display:flex;flex-wrap:wrap;gap:var(--sp-md)" id="materias-prof-chips">
+              <button type="button" class="btn btn-ghost chip-materia active" data-materia="Matemáticas" onclick="toggleMateriaProf(this)">📐 Matemáticas</button>
+              <button type="button" class="btn btn-ghost chip-materia active" data-materia="Física" onclick="toggleMateriaProf(this)">⚡ Física</button>
+              <button type="button" class="btn btn-ghost chip-materia" data-materia="Química" onclick="toggleMateriaProf(this)">🧪 Química</button>
+              <button type="button" class="btn btn-ghost chip-materia" data-materia="Biología" onclick="toggleMateriaProf(this)">🧬 Biología</button>
+              <button type="button" class="btn btn-ghost chip-materia" data-materia="Historia" onclick="toggleMateriaProf(this)">📜 Historia</button>
+              <button type="button" class="btn btn-ghost chip-materia" data-materia="Español" onclick="toggleMateriaProf(this)">📚 Lengua Española</button>
+              <button type="button" class="btn btn-ghost chip-materia" data-materia="Inglés" onclick="toggleMateriaProf(this)">🌐 Inglés</button>
+              <button type="button" class="btn btn-ghost chip-materia" data-materia="Programación" onclick="toggleMateriaProf(this)">💻 Computación</button>
+            </div>
+            <button class="btn btn-primary" style="margin-top:var(--sp-xl)" onclick="guardarMateriasProf()">
+              💾 Guardar Configuración
+            </button>
+          </div>
         </section>
 
       </div>
@@ -189,6 +222,137 @@
   </div>
 
   <div id="toast-container" aria-live="polite"></div>
+
+  <!-- Modal: Crear Grupo -->
+  <div class="modal-overlay" id="modal-grupo" style="display:none;align-items:center;justify-content:center">
+    <div class="modal" style="max-width:420px;width:90%">
+      <div class="modal-header">
+        <span class="modal-title">🔑 Crear Grupo de Clase</span>
+        <button class="modal-close" onclick="cerrarModalGrupo()" aria-label="Cerrar">×</button>
+      </div>
+      <div style="padding:var(--sp-lg)">
+        <!-- Paso 1: Formulario -->
+        <div id="modal-grupo-form">
+          <p style="color:var(--clr-text-muted);font-size:0.9rem;margin-bottom:var(--sp-lg)">Crea un grupo y comparte el código con tus alumnos para que se unan automáticamente.</p>
+          <div class="input-group">
+            <label class="input-label" for="input-nombre-grupo">Nombre del Grupo</label>
+            <div class="input-icon-wrap">
+              <span class="input-icon">👥</span>
+              <input id="input-nombre-grupo" type="text" class="input" placeholder="Ej: Matemáticas 3A" />
+            </div>
+          </div>
+          <button class="btn btn-primary" style="width:100%;margin-top:var(--sp-md)" onclick="crearGrupo()"
+            id="btn-crear-grupo-submit">
+            <span id="btn-crear-grupo-txt">✨ Crear y generar código</span>
+            <span id="btn-crear-grupo-spin" class="spinner spinner-sm hidden"></span>
+          </button>
+        </div>
+        <!-- Paso 2: Código generado -->
+        <div id="modal-grupo-codigo" style="display:none;text-align:center">
+          <p style="color:var(--clr-text-muted);margin-bottom:var(--sp-lg)">¡Grupo creado! Comparte este código con tus alumnos:</p>
+          <div style="background:var(--clr-bg-2);border:2px solid var(--clr-primary);border-radius:var(--r-xl);padding:var(--sp-xl);margin-bottom:var(--sp-lg)">
+            <div id="codigo-generado" style="font-size:2.5rem;font-weight:900;letter-spacing:10px;color:var(--clr-primary)">------</div>
+            <div id="nombre-grupo-generado" style="color:var(--clr-text-muted);font-size:0.85rem;margin-top:8px"></div>
+          </div>
+          <button class="btn btn-primary" style="width:100%;margin-bottom:var(--sp-sm)" onclick="copiarCodigo()">
+            📋 Copiar Código
+          </button>
+          <button class="btn btn-ghost" style="width:100%" onclick="cerrarModalGrupo()">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Crear Anuncio -->
+  <div class="modal-overlay" id="modal-anuncio" style="display:none;align-items:center;justify-content:center">
+    <div class="modal" style="max-width:460px;width:90%">
+      <div class="modal-header">
+        <span class="modal-title">📢 Crear Anuncio para el Grupo</span>
+        <button class="modal-close" onclick="cerrarModalAnuncio()" aria-label="Cerrar">×</button>
+      </div>
+      <div style="padding:var(--sp-lg)">
+        <div class="input-group" style="margin-bottom:var(--sp-md)">
+          <label class="input-label" for="input-anuncio-titulo">Título del Anuncio</label>
+          <input id="input-anuncio-titulo" type="text" class="input" placeholder="Ej: Recordatorio: Examen el viernes" />
+        </div>
+        <div class="input-group" style="margin-bottom:var(--sp-lg)">
+          <label class="input-label" for="input-anuncio-contenido">Mensaje</label>
+          <textarea id="input-anuncio-contenido" class="input" style="height:100px;resize:vertical" placeholder="Escribe tu mensaje para los alumnos..."></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="publicarAnuncio()">
+          🚀 Publicar Anuncio
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Asignar Quiz -->
+  <div class="modal-overlay" id="modal-asignar-quiz" style="display:none;align-items:center;justify-content:center">
+    <div class="modal" style="max-width:460px;width:90%">
+      <div class="modal-header">
+        <span class="modal-title">🎯 Asignar Quiz al Grupo</span>
+        <button class="modal-close" onclick="cerrarModalAsignarQuiz()" aria-label="Cerrar">×</button>
+      </div>
+      <div style="padding:var(--sp-lg)">
+        <div class="input-group" style="margin-bottom:var(--sp-md)">
+          <label class="input-label" for="select-quiz-materia">Materia</label>
+          <select id="select-quiz-materia" class="input">
+            <option value="Matemáticas">📐 Matemáticas</option>
+            <option value="Física">⚡ Física</option>
+            <option value="Química">🧪 Química</option>
+            <option value="Biología">🧬 Biología</option>
+            <option value="Historia">📜 Historia</option>
+            <option value="Español">📚 Lengua Española</option>
+          </select>
+        </div>
+        <div class="input-group" style="margin-bottom:var(--sp-lg)">
+          <label class="input-label" for="select-quiz-preguntas">Cantidad de Preguntas</label>
+          <select id="select-quiz-preguntas" class="input">
+            <option value="3">3 Preguntas (Rápido)</option>
+            <option value="5" selected>5 Preguntas (Estándar)</option>
+            <option value="10">10 Preguntas (Completo)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="asignarQuizProf()">
+          ✨ Generar con Gemini y Asignar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Renombrar Grupo -->
+  <div class="modal-overlay" id="modal-renombrar-grupo" style="display:none;align-items:center;justify-content:center">
+    <div class="modal" style="max-width:400px;width:90%">
+      <div class="modal-header">
+        <span class="modal-title">✏️ Renombrar Grupo</span>
+        <button class="modal-close" onclick="cerrarModalRenombrarGrupo()" aria-label="Cerrar">×</button>
+      </div>
+      <div style="padding:var(--sp-lg)">
+        <div class="input-group" style="margin-bottom:var(--sp-lg)">
+          <label class="input-label" for="input-nuevo-nombre-grupo">Nuevo Nombre del Grupo</label>
+          <input id="input-nuevo-nombre-grupo" type="text" class="input" placeholder="Ej: Física Avanzada 6B" />
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="renombrarGrupo()">
+          💾 Guardar Nombre
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Ficha Detallada del Alumno -->
+  <div class="modal-overlay" id="modal-alumno-detalle" style="display:none;align-items:center;justify-content:center">
+    <div class="modal" style="max-width:520px;width:90%">
+      <div class="modal-header">
+        <span class="modal-title" id="alumno-detalle-nombre">👤 Ficha de Estudiante</span>
+        <button class="modal-close" onclick="cerrarModalAlumnoDetalle()" aria-label="Cerrar">×</button>
+      </div>
+      <div style="padding:var(--sp-lg)" id="alumno-detalle-body">
+        <!-- JS populated -->
+      </div>
+    </div>
+  </div>
 
   <script src="js/config.js"></script>
   <script src="js/utils.js"></script>
