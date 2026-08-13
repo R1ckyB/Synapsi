@@ -46,13 +46,35 @@ function selectNivel(btn) {
   selectedNivel = btn.dataset.nivel;
 }
 
-/* ── TOGGLE PASSWORD ─────────────────────────────────────── */
+/* ── TOGGLE PASSWORD ──────────────────────────────────────── */
 function togglePwd(inputId, btn) {
   const input = document.getElementById(inputId);
   if (!input) return;
   const isText = input.type === 'text';
   input.type = isText ? 'password' : 'text';
   btn.textContent = isText ? '👁️' : '🙈';
+}
+
+/* ── HELPER: gestionar estado del botón de login ───────────────── */
+function setLoginBtn(loading) {
+  const btn = document.getElementById('btn-login');
+  const txt = document.getElementById('btn-login-text');
+  const spn = document.getElementById('btn-login-spinner');
+  if (!btn) return;
+  btn.disabled = loading;
+  if (txt) txt.textContent = loading ? 'Iniciando sesión...' : 'Iniciar sesión';
+  if (spn) spn.classList.toggle('hidden', !loading);
+}
+
+/* ── HELPER: consultar perfil desde backend (compartido por email y Google) ─ */
+async function consultarPerfilBackend(uid, idToken) {
+  try {
+    const res = await fetch(`${SYNAPSE_CONFIG.API_BASE}/auth/perfil/${uid}`, {
+      headers: { 'Authorization': `Bearer ${idToken}` }
+    });
+    if (res.ok) return await res.json();
+  } catch (_) { /* backend offline */ }
+  return loadLocal('user') || {};
 }
 
 /* ── LOGIN ───────────────────────────────────────────────── */
@@ -63,82 +85,63 @@ async function handleLogin(event) {
 
   if (!email || !password) { showToast('Completa todos los campos', 'error'); return; }
 
-  const btn = document.getElementById('btn-login');
-  const txt = document.getElementById('btn-login-text');
-  const spn = document.getElementById('btn-login-spinner');
-  btn.disabled = true;
-  txt.textContent = 'Iniciando sesión...';
-  spn.classList.remove('hidden');
+  // Firebase no disponible → modo demo directamente
+  if (typeof auth === 'undefined') {
+    handleDemoLogin(email);
+    return;
+  }
+
+  setLoginBtn(true);
 
   try {
-    // Intentar con Firebase Auth para email/contraseña
-    if (typeof auth !== 'undefined') {
-      const result = await auth.signInWithEmailAndPassword(email, password);
-      const firebaseUser = result.user;
-      const idToken = await firebaseUser.getIdToken().catch(() => '');
+    const result      = await auth.signInWithEmailAndPassword(email, password);
+    const firebaseUser = result.user;
+    const idToken     = await firebaseUser.getIdToken().catch(() => '');
 
-      // Consultar perfil guardado en backend para conservar rol y nivel del diagnóstico
-      let userRol = 'estudiante';
-      let nivelPorMateria = null;
-      let diagnosticoHecho = false;
-      try {
-        const perfilRes = await fetch(`${SYNAPSE_CONFIG.API_BASE}/auth/perfil/${firebaseUser.uid}`, {
-          headers: { 'Authorization': `Bearer ${idToken}` }
-        });
-        if (perfilRes.ok) {
-          const perfilData = await perfilRes.json();
-          if (perfilData.rol) userRol = perfilData.rol;
-          if (perfilData.nivelPorMateria) nivelPorMateria = perfilData.nivelPorMateria;
-          if (perfilData.diagnosticoHecho) diagnosticoHecho = perfilData.diagnosticoHecho;
-        }
-      } catch (e) {
-        const prevUser = loadLocal('user') || {};
-        userRol = prevUser.rol || 'estudiante';
-        nivelPorMateria = prevUser.nivelPorMateria || null;
-        diagnosticoHecho = prevUser.diagnosticoHecho || false;
-      }
+    // Consultar perfil completo (rol, nivelPorMateria, diagnosticoHecho, grupoId)
+    const perfil = await consultarPerfilBackend(firebaseUser.uid, idToken);
 
-      const user = {
-        uid:              firebaseUser.uid,
-        nombre:           firebaseUser.displayName || email.split('@')[0],
-        email:            firebaseUser.email,
-        foto:             firebaseUser.photoURL,
-        rol:              userRol,
-        nivelEducativo:   'secundaria',
-        nivelPorMateria:  nivelPorMateria,
-        diagnosticoHecho: diagnosticoHecho
-      };
+    const user = {
+      uid:              firebaseUser.uid,
+      nombre:           firebaseUser.displayName || email.split('@')[0],
+      email:            firebaseUser.email,
+      foto:             firebaseUser.photoURL,
+      rol:              perfil.rol              || 'estudiante',
+      nivelEducativo:   perfil.nivelEducativo   || 'secundaria',
+      nivelPorMateria:  perfil.nivelPorMateria  || null,
+      diagnosticoHecho: perfil.diagnosticoHecho || false,
+      grupoId:          perfil.grupoId          || null,
+      grupoNombre:      perfil.grupoNombre       || null
+    };
 
-      saveLocal('user', user);
-      if (idToken) {
-        saveLocal('token', idToken);
-        saveLocal('idToken', idToken);
-      }
-
-      showToast(`¡Bienvenido, ${user.nombre}! 🎉`, 'success');
-      setTimeout(() => {
-        window.location.href = user.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
-      }, 600);
-      return;
+    saveLocal('user', user);
+    if (idToken) {
+      saveLocal('token',   idToken);
+      saveLocal('idToken', idToken);
     }
+
+    showToast(`¡Bienvenido, ${user.nombre}! 🎉`, 'success');
+    setTimeout(() => {
+      window.location.href = user.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
+    }, 600);
+
   } catch (err) {
-    console.error('Login error:', err);
+    // FIX: mostrar error claro, nunca caer a modo demo
     const errorMessages = {
-      'auth/wrong-password': 'Contraseña incorrecta',
-      'auth/invalid-credential': 'Credenciales inválidas',
-      'auth/user-not-found': 'Usuario no encontrado. Revisa tu correo o créate una cuenta.',
-      'auth/invalid-email': 'Correo electrónico inválido.',
-      'auth/user-disabled': 'Esta cuenta ha sido deshabilitada.',
-      'auth/too-many-requests': 'Demasiados intentos fallidos. Intenta más tarde.'
+      'auth/wrong-password':         'Contraseña incorrecta',
+      'auth/invalid-credential':     'Credenciales inválidas. Verifica correo y contraseña.',
+      'auth/user-not-found':         'Usuario no encontrado. Revisa tu correo o créate una cuenta.',
+      'auth/invalid-email':          'Correo electrónico inválido.',
+      'auth/user-disabled':          'Esta cuenta ha sido deshabilitada.',
+      'auth/too-many-requests':      'Demasiados intentos fallidos. Intenta más tarde.',
+      'auth/network-request-failed': 'Sin conexión. Verifica tu internet.'
     };
     const msg = errorMessages[err.code] || err.message || 'Error al iniciar sesión';
     showToast(msg, 'error');
-    btn.disabled = false;
-    txt.textContent = 'Iniciar sesión';
-    spn.classList.add('hidden');
-    return;
+  } finally {
+    // FIX: siempre rehabilitar el botón, tanto en éxito como en error
+    setLoginBtn(false);
   }
-  handleDemoLogin(email);
 }
 
 /* ── DEMO LOGIN (sin backend) ────────────────────────────── */
@@ -210,7 +213,9 @@ async function handleRegister(event) {
     } catch (e) { /* ignore if backend offline */ }
 
     saveLocal('user', user);
-    saveLocal('token', idToken);
+    // FIX: guardar en AMBAS claves que usa el authGuard
+    saveLocal('token',   idToken);
+    saveLocal('idToken', idToken);
 
     // Si el estudiante ingresó un código de clase, unirse al grupo automáticamente
     const codigoGrupoInput = document.getElementById('reg-codigo-grupo');
@@ -284,27 +289,21 @@ async function processGoogleUser(firebaseUser) {
 
   const idToken = await firebaseUser.getIdToken().catch(() => '');
 
-  let userRol = 'estudiante';
-  try {
-    const perfilRes = await fetch(`${SYNAPSE_CONFIG.API_BASE}/auth/perfil/${firebaseUser.uid}`, {
-      headers: { 'Authorization': `Bearer ${idToken}` }
-    });
-    if (perfilRes.ok) {
-      const perfilData = await perfilRes.json();
-      if (perfilData.rol) userRol = perfilData.rol;
-    }
-  } catch (e) {
-    userRol = loadLocal('user')?.rol || 'estudiante';
-  }
+  // FIX: restaurar nivelPorMateria y diagnosticoHecho igual que en email login
+  const perfil = await consultarPerfilBackend(firebaseUser.uid, idToken);
 
   const user = {
-    uid:             firebaseUser.uid,
-    nombre:          firebaseUser.displayName || firebaseUser.email.split('@')[0],
-    email:           firebaseUser.email,
-    foto:            firebaseUser.photoURL,
-    rol:             userRol,
-    nivelEducativo:  'secundaria',
-    googleAuth:      true
+    uid:              firebaseUser.uid,
+    nombre:           firebaseUser.displayName || firebaseUser.email.split('@')[0],
+    email:            firebaseUser.email,
+    foto:             firebaseUser.photoURL,
+    rol:              perfil.rol              || 'estudiante',
+    nivelEducativo:   perfil.nivelEducativo   || 'secundaria',
+    nivelPorMateria:  perfil.nivelPorMateria  || null,
+    diagnosticoHecho: perfil.diagnosticoHecho || false,
+    grupoId:          perfil.grupoId          || null,
+    grupoNombre:      perfil.grupoNombre       || null,
+    googleAuth:       true
   };
 
   saveLocal('user', user);
