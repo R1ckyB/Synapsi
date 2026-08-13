@@ -23,24 +23,29 @@ router.post('/mensaje', validarMensajeTutoria, async (req, res) => {
       return res.status(400).json({ error: true, mensaje: 'El mensaje no puede estar vacío.' });
     }
 
-    let estudianteGrupoId = estudiante?.grupoId || 'general';
+    // SECURITY: uid y grupoId nunca vienen del cliente; se toman del token y Firestore
+    const uid = req.usuario.uid; // siempre del token verificado
+
+    // grupoId: empezar con 'general'; sobreescribir solo si Firestore confirma pertenencia
+    let estudianteGrupoId = 'general';
     const { getDb } = require('../config/firebase');
     const db = getDb();
 
-    if (db && req.usuario?.uid) {
+    if (db) {
       try {
-        const userDoc = await db.collection('usuarios').doc(req.usuario.uid).get();
+        const userDoc = await db.collection('usuarios').doc(uid).get();
         if (userDoc.exists && userDoc.data().grupoId) {
           estudianteGrupoId = userDoc.data().grupoId;
         }
-      } catch (e) { /* ignore read error */ }
+      } catch (e) { /* mantener 'general' si falla la lectura */ }
     }
 
     const datosEstudiante = {
-      uid: req.usuario?.uid || estudiante?.uid || 'anonimo',
-      nombre: estudiante?.nombre || req.usuario?.nombre || 'Estudiante',
+      uid,
+      nombre:         estudiante?.nombre || req.usuario?.nombre || 'Estudiante',
       nivelEducativo: estudiante?.nivelEducativo || 'secundaria',
-      materiaActual: estudiante?.materiaActual || 'General',
+      nivelDominio:   estudiante?.nivelDominio  || null, // ya validado por inputValidator
+      materiaActual:  estudiante?.materiaActual  || 'General',
       grupoId: estudianteGrupoId
     };
 

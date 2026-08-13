@@ -550,10 +550,8 @@ async function eliminarAlumnoDeGrupo(uid, nombre) {
   const codigoGrupo = PROFESOR_STATE.grupoActual || 'general';
 
   try {
-    await fetch(`${SYNAPSE_CONFIG.API_BASE}/profesores/grupos/${codigoGrupo}/alumnos/${uid}`, {
-      method: 'DELETE',
-      headers: await obtenerAuthHeader()
-    });
+    // FIX: usar apiDelete en lugar de fetch directo para garantizar cabecera de auth
+    await apiDelete(`/profesores/grupos/${codigoGrupo}/alumnos/${uid}`);
     showToast(`Alumno ${nombre} eliminado del grupo`, 'info');
     cerrarModalAlumnoDetalle();
     loadOverview();

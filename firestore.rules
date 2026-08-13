@@ -16,13 +16,30 @@ service cloud.firestore {
       return grupo.data.profesorId == request.auth.uid ||
              request.auth.uid in grupo.data.alumnos;
     }
+    function esDuenoGrupo(grupoId) {
+      let grupo = get(/databases/$(database)/documents/grupos/$(grupoId));
+      return grupo.data.profesorId == request.auth.uid || esAdmin();
+    }
+    // Campos que nunca puede modificar el cliente directamente
+    function noCambiaCamposAdmin() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['rol', 'uid', 'grupoId', 'grupos', 'profesorId', 'diagnosticoHecho']);
+    }
 
     // ── Perfiles de usuario ───────────────────────────────────────
     match /usuarios/{uid} {
-      // Cada usuario lee/escribe solo su propio perfil
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      // Cualquier usuario lee su propio perfil
+      allow read: if request.auth != null && request.auth.uid == uid;
       // Los profesores y admins pueden leer perfiles de estudiantes
       allow read: if esProfesor();
+
+      // Crear perfil propio (primer registro)
+      allow create: if request.auth != null && request.auth.uid == uid
+                    && !request.resource.data.keys().hasAny(['rol', 'grupos', 'profesorId']);
+
+      // Editar perfil propio: NUNCA puede cambiar rol, uid, grupoId ni campos admin
+      allow update: if request.auth != null && request.auth.uid == uid
+                    && noCambiaCamposAdmin();
     }
 
     // ── Grupos ────────────────────────────────────────────────────
@@ -41,23 +58,36 @@ service cloud.firestore {
     }
 
     // ── Anuncios ──────────────────────────────────────────────────
-    // Solo miembros del grupo pueden leer anuncios de ese grupo
     match /anuncios/{anuncioId} {
+      // Solo miembros del grupo pueden leer anuncios de ese grupo
       allow read: if request.auth != null &&
                      perteneceAGrupo(resource.data.grupoId);
-      allow write: if esProfesor() &&
-                      resource == null || resource.data.profesorId == request.auth.uid;
+
+      // Crear: el profesor debe ser dueño del grupo en el que publica
+      allow create: if esProfesor() &&
+                       esDuenoGrupo(request.resource.data.grupoId);
+
+      // Editar o borrar: solo el autor original (profesorId guardado en el doc)
+      allow update, delete: if esProfesor() &&
+                               resource.data.profesorId == request.auth.uid;
     }
 
     // ── Quizzes Asignados ─────────────────────────────────────────
     match /quizzesAsignados/{quizId} {
+      // Leer: solo miembros del grupo
       allow read: if request.auth != null &&
                      perteneceAGrupo(resource.data.grupoId);
-      allow write: if esProfesor();
+
+      // Crear: el profesor debe ser dueño del grupo destino
+      allow create: if esProfesor() &&
+                       esDuenoGrupo(request.resource.data.grupoId);
+
+      // Editar o borrar: solo el profesor que lo creó
+      allow update, delete: if esProfesor() &&
+                               resource.data.profesorId == request.auth.uid;
     }
 
     // ── Interacciones de Tutoría ──────────────────────────────────
-    // Separar create del read para evitar crash por resource.data en create
     match /interacciones/{interaccionId} {
       allow create: if request.auth != null &&
                        request.resource.data.estudianteId == request.auth.uid;
@@ -68,9 +98,13 @@ service cloud.firestore {
     }
 
     // ── Vacíos de conocimiento ────────────────────────────────────
+    // El backend usa Admin SDK y NO necesita permiso de reglas.
+    // Denegar escritura directa del cliente para evitar falsificaciones.
     match /vacios_conocimiento/{vacioId} {
-      allow read: if request.auth != null && esProfesor();
-      allow write: if request.auth != null; // Backend server-side escribe con Admin SDK
+      allow read: if request.auth != null && (
+        resource.data.estudianteId == request.auth.uid || esProfesor()
+      );
+      // allow write: DENEGADO — solo el servidor escribe con Admin SDK
     }
 
     // ── Sesiones de Tutoría ───────────────────────────────────────

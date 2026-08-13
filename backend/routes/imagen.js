@@ -35,12 +35,29 @@ router.post('/analizar', upload.single('imagen'), async (req, res) => {
       });
     }
 
+    // SECURITY: uid y nombre siempre del token verificado, nunca del cliente
+    const uid    = req.usuario?.uid    || 'anonimo';
+    const nombre = req.usuario?.nombre || req.body.nombre || 'Estudiante';
+
+    // grupoId: 'general' por defecto; sobreescribir solo si Firestore lo confirma
+    let grupoId = 'general';
+    try {
+      const { getDb } = require('../config/firebase');
+      const db = getDb();
+      if (db && uid !== 'anonimo') {
+        const userDoc = await db.collection('usuarios').doc(uid).get();
+        if (userDoc.exists && userDoc.data().grupoId) {
+          grupoId = userDoc.data().grupoId;
+        }
+      }
+    } catch (_) { /* mantener 'general' si falla */ }
+
     const estudiante = {
-      uid: req.body.uid || 'anonimo',
-      nombre: req.body.nombre || 'Estudiante',
+      uid,
+      nombre,
       nivelEducativo: req.body.nivelEducativo || 'secundaria',
-      materiaActual: req.body.materia || 'Matemáticas',
-      grupoId: req.body.grupoId || 'general'
+      materiaActual:  req.body.materia        || 'Matemáticas',
+      grupoId
     };
 
     const mimeType = req.file.mimetype || 'image/jpeg';
@@ -50,9 +67,9 @@ router.post('/analizar', upload.single('imagen'), async (req, res) => {
     res.json({
       exito: true,
       ...analisis,
-      observacion: analisis.descripcionError || analisis.ejercicioIdentificado || 'Análisis de libreta completado',
-      guia_socratica: analisis.preguntaSocratica || analisis.mensajeMotivador || 'Revisa tu procedimiento',
-      pistas: analisis.pistaAdicional ? [analisis.pistaAdicional] : [],
+      observacion:    analisis.descripcionError    || analisis.ejercicioIdentificado || 'Análisis de libreta completado',
+      guia_socratica: analisis.preguntaSocratica   || analisis.mensajeMotivador      || 'Revisa tu procedimiento',
+      pistas:         analisis.pistaAdicional ? [analisis.pistaAdicional] : [],
       analisis,
       timestamp: new Date().toISOString()
     });
