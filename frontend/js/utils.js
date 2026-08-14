@@ -179,15 +179,19 @@ function toggleUserMenu() {
   if (menu) menu.classList.toggle('hidden');
 }
 
-function handleLogout() {
+async function handleLogout() {
   clearLocal('user');
   clearLocal('token');
   clearLocal('idToken');
   clearLocal('historial');
   if (window.firebase && firebase.auth) {
-    try { firebase.auth().signOut(); } catch (e) {}
+    try {
+      await firebase.auth().signOut();
+    } catch (e) {
+      console.warn('Error en signOut:', e);
+    }
   }
-  showToast('Sesión cerrada 🚪', 'info', 1500);
+  showToast('Sesión cerrada 🚪', 'info', 1000);
   setTimeout(() => {
     window.location.href = 'index.html';
   }, 300);

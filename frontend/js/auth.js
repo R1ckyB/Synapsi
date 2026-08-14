@@ -328,7 +328,7 @@ async function processGoogleUser(firebaseUser) {
   }
 }
 
-// Listener para capturar resultado de Redirect y estado Auth en celulares
+// Listener para capturar resultado de Redirect en celulares (solo si el usuario explícitamente hizo redirect)
 if (typeof auth !== 'undefined') {
   auth.getRedirectResult().then(result => {
     if (result && result.user) {
@@ -339,23 +339,20 @@ if (typeof auth !== 'undefined') {
       console.warn('Redirect auth result error:', err);
     }
   });
-
-  // Listener de respaldo para sesión persistente de Firebase en dispositivos móviles
-  auth.onAuthStateChanged(firebaseUser => {
-    if (firebaseUser && !loadLocal('user')) {
-      processGoogleUser(firebaseUser);
-    }
-  });
 }
 
 /* ── LOGOUT ──────────────────────────────────────────────── */
-function handleLogout() {
+async function handleLogout() {
   clearLocal('user');
   clearLocal('token');
   clearLocal('idToken');
   clearLocal('historial');
   if (typeof auth !== 'undefined') {
-    auth.signOut().catch(() => {});
+    try {
+      await auth.signOut();
+    } catch (e) {
+      console.warn('Error al cerrar sesión de Firebase:', e);
+    }
   }
   window.location.href = 'index.html';
 }
