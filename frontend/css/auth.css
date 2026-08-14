@@ -221,3 +221,31 @@
 }
 .field-error.show { display: block; }
 .input.error { border-color: var(--clr-warn); }
+
+/* ── MOBILE PHONE RESPONSIVENESS (MÓVIL / TELÉFONO) ──────── */
+@media (max-width: 600px) {
+  .auth-form-side {
+    padding: var(--sp-lg) var(--sp-md);
+    justify-content: flex-start;
+  }
+  .auth-card {
+    margin-top: var(--sp-sm);
+  }
+  .auth-title {
+    font-size: 1.6rem;
+  }
+  .input, .select {
+    font-size: 16px !important; /* Previene el zoom automático molesto de iOS Safari al enfocar campos */
+    min-height: 46px;
+  }
+  .btn-lg, .btn-google {
+    min-height: 48px;
+    font-size: 0.95rem;
+  }
+  .role-card {
+    padding: var(--sp-sm);
+  }
+  .role-card-icon {
+    font-size: 1.5rem;
+  }
+}

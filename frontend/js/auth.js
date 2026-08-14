@@ -253,72 +253,82 @@ async function handleRegister(event) {
 }
 
 /* ── GOOGLE LOGIN ────────────────────────────────────────── */
+let isAuthProcessing = false;
+
 async function handleGoogleLogin() {
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
+  if (typeof auth === 'undefined') {
+    handleDemoLogin('google-user@synapse.edu');
+    return;
+  }
+
   try {
     showToast('Iniciando sesión con Google...', 'info', 2000);
     
-    if (isMobile) {
-      // En celulares, usar Redirect para evitar bloqueos de Popups en Android/iOS
-      await auth.signInWithRedirect(googleProvider);
-    } else {
-      // En computadoras, usar Popup
-      const result = await auth.signInWithPopup(googleProvider);
+    // 1. Intentar con Popup (funciona en la gran mayoría de móviles iOS/Android sin romper ITP cookies)
+    const result = await auth.signInWithPopup(googleProvider);
+    if (result && result.user) {
       await processGoogleUser(result.user);
     }
   } catch (err) {
-    if (err.code === 'auth/popup-closed-by-user') return;
-    if (err.code === 'auth/popup-blocked' || isMobile) {
-      // Fallback a Redirect si el popup fue bloqueado
-      try {
-        await auth.signInWithRedirect(googleProvider);
-        return;
-      } catch (redirectErr) {
-        console.error('Redirect error:', redirectErr);
-      }
+    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+      return;
     }
-    console.error('Google login error:', err);
-    showToast('Error al conectar con Google. Intenta con correo.', 'error');
+    console.warn('Google Popup no disponible, intentando Redirect:', err.message || err);
+    // 2. Fallback a Redirect si el navegador bloqueó la ventana emergente
+    try {
+      await auth.signInWithRedirect(googleProvider);
+    } catch (redirectErr) {
+      console.error('Google Redirect error:', redirectErr);
+      showToast('Error al conectar con Google. Intenta ingresar con correo y contraseña.', 'error');
+    }
   }
 }
 
 // Procesar usuario resultante de Google (popup o redirect)
 async function processGoogleUser(firebaseUser) {
-  if (!firebaseUser) return;
+  if (!firebaseUser || isAuthProcessing) return;
+  isAuthProcessing = true;
 
-  const idToken = await firebaseUser.getIdToken().catch(() => '');
+  try {
+    const idToken = await firebaseUser.getIdToken().catch(() => '');
 
-  // FIX: restaurar nivelPorMateria y diagnosticoHecho igual que en email login
-  const perfil = await consultarPerfilBackend(firebaseUser.uid, idToken);
+    // Consultar perfil guardado en backend
+    const perfil = await consultarPerfilBackend(firebaseUser.uid, idToken);
 
-  const user = {
-    uid:              firebaseUser.uid,
-    nombre:           firebaseUser.displayName || firebaseUser.email.split('@')[0],
-    email:            firebaseUser.email,
-    foto:             firebaseUser.photoURL,
-    rol:              perfil.rol              || 'estudiante',
-    nivelEducativo:   perfil.nivelEducativo   || 'secundaria',
-    nivelPorMateria:  perfil.nivelPorMateria  || null,
-    diagnosticoHecho: perfil.diagnosticoHecho || false,
-    grupoId:          perfil.grupoId          || null,
-    grupoNombre:      perfil.grupoNombre       || null,
-    googleAuth:       true
-  };
+    const email = firebaseUser.email || '';
+    const user = {
+      uid:              firebaseUser.uid,
+      nombre:           firebaseUser.displayName || (email ? email.split('@')[0] : 'Estudiante'),
+      email:            email,
+      foto:             firebaseUser.photoURL || '',
+      rol:              perfil.rol              || 'estudiante',
+      nivelEducativo:   perfil.nivelEducativo   || 'secundaria',
+      nivelPorMateria:  perfil.nivelPorMateria  || null,
+      diagnosticoHecho: perfil.diagnosticoHecho || false,
+      grupoId:          perfil.grupoId          || null,
+      grupoNombre:      perfil.grupoNombre       || null,
+      googleAuth:       true
+    };
 
-  saveLocal('user', user);
-  if (idToken) {
-    saveLocal('token', idToken);
-    saveLocal('idToken', idToken);
+    saveLocal('user', user);
+    if (idToken) {
+      saveLocal('token',   idToken);
+      saveLocal('idToken', idToken);
+    }
+
+    showToast(`¡Bienvenido, ${user.nombre}! 🎉`, 'success');
+    setTimeout(() => {
+      window.location.href = user.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
+    }, 600);
+  } catch (err) {
+    console.error('Error procesando usuario Google:', err);
+    showToast('Error completando inicio de sesión', 'error');
+  } finally {
+    isAuthProcessing = false;
   }
-
-  showToast(`¡Bienvenido, ${user.nombre}! 🎉`, 'success');
-  setTimeout(() => {
-    window.location.href = user.rol === 'profesor' ? 'profesor.html' : 'dashboard.html';
-  }, 600);
 }
 
-// Listener para capturar resultado de Redirect (en celulares)
+// Listener para capturar resultado de Redirect y estado Auth en celulares
 if (typeof auth !== 'undefined') {
   auth.getRedirectResult().then(result => {
     if (result && result.user) {
@@ -327,6 +337,13 @@ if (typeof auth !== 'undefined') {
   }).catch(err => {
     if (err.code && err.code !== 'auth/null-user') {
       console.warn('Redirect auth result error:', err);
+    }
+  });
+
+  // Listener de respaldo para sesión persistente de Firebase en dispositivos móviles
+  auth.onAuthStateChanged(firebaseUser => {
+    if (firebaseUser && !loadLocal('user')) {
+      processGoogleUser(firebaseUser);
     }
   });
 }
